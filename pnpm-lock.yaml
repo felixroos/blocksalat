@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@blockly/toolbox-search':
+        specifier: ^2.0.12
+        version: 2.0.12(blockly@11.2.1)
       '@kabelsalat/web':
         specifier: ^0.3.2
         version: 0.3.2
@@ -23,6 +26,11 @@ packages:
 
   '@asamuzakjp/css-color@2.8.3':
     resolution: {integrity: sha512-GIc76d9UI1hCvOATjZPyHFmE5qhRccp3/zGfMPapK3jBi+yocEzp6BBB0UnfRYP9NP4FANqUZYb0hnfs3TM3hw==}
+
+  '@blockly/toolbox-search@2.0.12':
+    resolution: {integrity: sha512-lZlBkWjW0pbU7gH8hiRQ9EkNy/sO7O4w4G5b49zeabmlfXxnXPrVVVxg+DVGGUifXqcNN5sGLQBrpbdPRJR+6w==}
+    peerDependencies:
+      blockly: ^11.0.0
 
   '@csstools/color-helpers@5.0.1':
     resolution: {integrity: sha512-MKtmkA0BX87PKaO1NFRTFH+UnkgnmySQOvNxJubsadusqPEC2aJ9MOQiMceZJJ6oitUl/i0L6u0M1IrmAOmgBA==}
@@ -558,6 +566,10 @@ snapshots:
       '@csstools/css-parser-algorithms': 3.0.4(@csstools/css-tokenizer@3.0.3)
       '@csstools/css-tokenizer': 3.0.3
       lru-cache: 10.4.3
+
+  '@blockly/toolbox-search@2.0.12(blockly@11.2.1)':
+    dependencies:
+      blockly: 11.2.1
 
   '@csstools/color-helpers@5.0.1': {}
 

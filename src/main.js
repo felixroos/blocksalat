@@ -4,19 +4,38 @@ import "blockly/blocks";
 import * as locale from "blockly/msg/en";
 import "./style.css";
 import { SalatRepl } from "@kabelsalat/web";
+import "@blockly/toolbox-search";
 
 export const kabelsalatGenerator = new Blockly.Generator("kabelsalat");
 
 const toolbox = {
-  kind: "flyoutToolbox",
+  kind: "categoryToolbox",
   contents: [
     {
-      kind: "block",
-      type: "n",
+      kind: "category",
+      name: "click to show all nodes",
+      colour: 10,
+      contents: [
+        {
+          kind: "block",
+          type: "n",
+        },
+        {
+          kind: "block",
+          type: "out",
+        },
+        {
+          kind: "search",
+          name: "Search",
+          contents: [],
+          type: "",
+        },
+      ],
     },
     {
-      kind: "block",
-      type: "out",
+      kind: "search",
+      name: "Search",
+      contents: [],
     },
   ],
 };
@@ -41,7 +60,7 @@ const registerNodeBlock = (name, inputs, output = "Number") => {
       });
     },
   };
-  toolbox.contents.push({
+  toolbox.contents[0].contents.push({
     kind: "block",
     type: name,
   });
@@ -324,8 +343,8 @@ registerNodeBlock("mouseY", []);
 
 Blockly.setLocale(locale);
 
-toolbox.contents.sort((a, b) => a.type.localeCompare(b.type));
-
+toolbox.contents[0].contents.sort((a, b) => a.type.localeCompare(b.type));
+console.log("toolbox", toolbox);
 const workspace = Blockly.inject(document.getElementById("blockly"), {
   readOnly: false,
   //trashcan: true,
@@ -355,7 +374,7 @@ document.getElementById("generate").addEventListener("click", () => {
 });
 
 workspace.addChangeListener((event) => {
-  console.log("event", event);
+  // console.log("event", event);
   if (
     ["move", "change", "block_field_intermediate_change"].includes(event.type)
   ) {
@@ -370,7 +389,7 @@ var json = {
       {
         type: "out",
         id: "cz]:bgLGZ7!J[ucl6dP+",
-        x: 105,
+        x: 145,
         y: 110,
         inputs: {
           input: {
