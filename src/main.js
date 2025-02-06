@@ -31,11 +31,12 @@ const categories = allTags.map((name, i) => ({
   contents: [],
 }));
 
+const getCategory = (name) => categories.find((cat) => cat.name === name);
+const getCategoryIndex = (name) =>
+  categories.findIndex((cat) => cat.name === name);
+
 const getCategoryColor = (name) =>
-  Math.round(
-    ((categories.findIndex((cat) => cat.name === name) + 1) / allTags.length) *
-      360
-  );
+  Math.round(((getCategoryIndex(name) + 1) / allTags.length) * 360);
 
 const toolbox = {
   kind: "categoryToolbox",
@@ -70,6 +71,7 @@ kabelsalatGenerator.forBlock["n"] = function (block, generator) {
   return [`${value}`, 0];
   //return [`n(${value})`, 0];
 };
+getCategory("math").contents.push({ kind: "block", type: "n" });
 
 Blockly.Blocks["out"] = {
   init: function () {
@@ -94,9 +96,10 @@ kabelsalatGenerator.forBlock["out"] = function (block, generator) {
   }
   return `${inputCode}.out()`;
 };
+getCategory("source").contents.push({ kind: "block", type: "out" });
 
 allNodes.forEach(([name, config]) => {
-  console.log("register", name, config);
+  //console.log("register", name, config);
   let inputs = config.ins || [];
   if (["mul", "div"].includes(name)) {
     inputs = [
