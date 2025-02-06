@@ -12,6 +12,7 @@
     "vite": "^6.1.0"
   },
   "dependencies": {
+    "@blockly/theme-dark": "^7.0.10",
     "@blockly/toolbox-search": "^2.0.12",
     "@kabelsalat/web": "^0.3.2",
     "blockly": "^11.2.1"

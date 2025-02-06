@@ -5,6 +5,7 @@ import * as locale from "blockly/msg/en";
 import "./style.css";
 import { SalatRepl } from "@kabelsalat/web";
 import "@blockly/toolbox-search";
+import DarkTheme from "@blockly/theme-dark";
 
 export const kabelsalatGenerator = new Blockly.Generator("kabelsalat");
 
@@ -347,6 +348,7 @@ toolbox.contents[0].contents.sort((a, b) => a.type.localeCompare(b.type));
 console.log("toolbox", toolbox);
 const workspace = Blockly.inject(document.getElementById("blockly"), {
   readOnly: false,
+  theme: DarkTheme,
   //trashcan: true,
   //media: "media/",
   move: {
@@ -369,8 +371,9 @@ function update() {
   console.log(jsonString);
 }
 
-document.getElementById("generate").addEventListener("click", () => {
+window.addEventListener("click", function init() {
   update();
+  window.removeEventListener("click", init);
 });
 
 workspace.addChangeListener((event) => {
