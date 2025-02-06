@@ -111,24 +111,46 @@ allNodes.forEach(([name, config]) => {
       { name: "in0", default: 1 },
       { name: "in1", default: 1 },
     ];
+  } else if (["seq"].includes(name)) {
+    inputs = [
+      { name: "1", default: 0 },
+      { name: "2", default: 0 },
+      { name: "3", default: 0 },
+      { name: "4", default: 0 },
+      { name: "5", default: 0 },
+      { name: "6", default: 0 },
+      { name: "7", default: 0 },
+      { name: "8", default: 0 },
+      { name: "9", default: 0 },
+      { name: "10", default: 0 },
+      { name: "11", default: 0 },
+      { name: "12", default: 0 },
+      { name: "13", default: 0 },
+      { name: "14", default: 0 },
+      { name: "15", default: 0 },
+      { name: "16", default: 0 },
+    ];
   }
   Blockly.Blocks[name] = {
     init: function () {
+      let args = inputs.map((input) => ({
+        type: "input_value",
+        name: input.name,
+        check: "Number",
+      }));
+      args.unshift({
+        type: "input_dummy",
+      });
+      let message = `${name} %1 ${inputs
+        .map((input, i) => `${input.name} %${i + 2}`)
+        .join(" ")}`;
       this.jsonInit({
-        //previousStatement: null,
-        //nextStatement: null,
-        //message0: `${inputs.map((_, i) => `%${i + 1}`).join(" ")} ${name} `,
-        message0: `${name} ${inputs.map((_, i) => `%${i + 1}`).join(" ")}`,
-        args0: inputs.map((input) => ({
-          type: "input_value",
-          name: input.name,
-          check: "Number",
-          // text: input.name,
-        })),
+        message0: message,
+        args0: args,
         output: "Number",
         colour: getCategoryColor(config.tags[0]),
         tooltip: config.description,
-        // helpUrl: "http://www.w3schools.com/jsref/jsref_length_string.asp",
+        // helpUrl: "https://kabel.salat.dev/reference/",
       });
     },
   };
@@ -145,14 +167,16 @@ allNodes.forEach(([name, config]) => {
     });
 
   kabelsalatGenerator.forBlock[name] = function (block, generator) {
-    const args = block.inputList.map((input, i) => {
+    const args = block.inputList.reduce((acc, input, i) => {
       if (input.type === Blockly.INPUT_VALUE) {
         const inputCode = generator.valueToCode(block, input.name, 0);
-        return inputCode || inputs[i].default || 0;
-      } else {
-        throw new Error(`unexpected input value ${input.type}`);
+        acc.push(inputCode || inputs[i]?.default || 0);
+      } else if (input.type !== 5) {
+        // 5 = dummy
+        console.warn(`olala.. unexpected input value ${input.type}`);
       }
-    });
+      return acc;
+    }, []);
     const code = `${name}(${args.join(", ")})`;
 
     return [code, 0];
@@ -166,6 +190,7 @@ const workspace = Blockly.inject(document.getElementById("blockly"), {
   readOnly: false,
   theme: DarkTheme,
   trashcan: false,
+  sound: false,
   //media: "media/",
   //rtl: true,
   move: {
