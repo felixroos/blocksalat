@@ -9,6 +9,8 @@ import DarkTheme from "@blockly/theme-dark";
 
 export const kabelsalatGenerator = new Blockly.Generator("kabelsalat");
 
+Blockly.ContextMenuItems.registerCommentOptions();
+
 const allNodes = Array.from(nodeRegistry.entries()).filter(
   ([name, config]) =>
     ![
