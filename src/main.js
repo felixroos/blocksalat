@@ -53,6 +53,14 @@ let nInputs = (n) =>
     },
   ]);
 });
+allNodes.push([
+  "src",
+  {
+    ins: [{ name: "channel" }],
+    tags: ["source"],
+    description: `routes the given out channel back to create feedback`,
+  },
+]);
 
 const allTags = allNodes
   .map(([_, config]) => config.tags)
@@ -112,11 +120,21 @@ getCategory("math").contents.push({ kind: "block", type: "n" });
 Blockly.Blocks["out"] = {
   init: function () {
     this.jsonInit({
-      message0: `out %1`,
+      message0: `out %1 in %2 channel %3`,
+      tooltip:
+        "output to speakers. if channel is set, only channels 0 and 1 will go to speakers. can be used together with src to create feedback!",
       args0: [
+        {
+          type: "input_dummy",
+        },
         {
           type: "input_value",
           name: "input",
+          check: "Number",
+        },
+        {
+          type: "input_value",
+          name: "channel",
           check: "Number",
         },
       ],
@@ -124,13 +142,14 @@ Blockly.Blocks["out"] = {
     });
   },
 };
+
 kabelsalatGenerator.forBlock["out"] = function (block, generator) {
-  const value = block.getFieldValue("NUM");
   const inputCode = generator.valueToCode(block, "input", 0);
   if (!inputCode) {
     return "n(0).out()";
   }
-  return `${inputCode}.out()`;
+  const channelCode = generator.valueToCode(block, "channel", 0);
+  return `${inputCode}.out(${channelCode})`;
 };
 getCategory("source").contents.push({ kind: "block", type: "out" });
 
