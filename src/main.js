@@ -349,8 +349,9 @@ console.log("toolbox", toolbox);
 const workspace = Blockly.inject(document.getElementById("blockly"), {
   readOnly: false,
   theme: DarkTheme,
-  //trashcan: true,
+  trashcan: false,
   //media: "media/",
+  //rtl: true,
   move: {
     scrollbars: true,
     drag: true,
@@ -367,8 +368,7 @@ function update() {
   console.log(code);
   repl.run(code);
   const json = Blockly.serialization.workspaces.save(workspace);
-  const jsonString = JSON.stringify(json);
-  console.log(jsonString);
+  window.location.hash = "#" + btoa(JSON.stringify(json));
 }
 
 window.addEventListener("click", function init() {
@@ -385,65 +385,13 @@ workspace.addChangeListener((event) => {
   }
 });
 
-var json = {
-  blocks: {
-    languageVersion: 0,
-    blocks: [
-      {
-        type: "out",
-        id: "cz]:bgLGZ7!J[ucl6dP+",
-        x: 145,
-        y: 110,
-        inputs: {
-          input: {
-            block: {
-              type: "sine",
-              id: "%1Z##gWsPPwro:QPM;gR",
-              inputs: {
-                freq: {
-                  block: {
-                    type: "range",
-                    id: "s/,R|D]D^%[%*StSm+}G",
-                    inputs: {
-                      in: {
-                        block: {
-                          type: "sine",
-                          id: "-#2+ptL[;c*z?b5S%}z)",
-                          inputs: {
-                            freq: {
-                              block: {
-                                type: "n",
-                                id: "V*ilu7flc(|F$vn}iVz(",
-                                fields: { NUM: "2" },
-                              },
-                            },
-                          },
-                        },
-                      },
-                      min: {
-                        block: {
-                          type: "n",
-                          id: "z1NpzKzI[=_2WabtgAmB",
-                          fields: { NUM: "200" },
-                        },
-                      },
-                      max: {
-                        block: {
-                          type: "n",
-                          id: "nHfO,Fi{soHN.wLm9riD",
-                          fields: { NUM: "300" },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    ],
-  },
-};
+const urlCode = atob(window.location.hash.slice(1));
 
-Blockly.serialization.workspaces.load(json, workspace);
+if (urlCode) {
+  const json = JSON.parse(urlCode);
+  try {
+    Blockly.serialization.workspaces.load(json, workspace);
+  } catch (err) {
+    console.error("could not load url hash as code", err);
+  }
+}
