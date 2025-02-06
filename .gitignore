@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+public/assets/recorder-BokptUnY.js
+public/assets/worklet-DzGFm3ry.js
