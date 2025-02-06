@@ -10,26 +10,33 @@ export const kabelsalatGenerator = new Blockly.Generator("kabelsalat");
 
 Blockly.ContextMenuItems.registerCommentOptions();
 
-const allNodes = Array.from(nodeRegistry.entries()).filter(
-  ([name, config]) =>
-    ![
-      "out",
-      "n",
-      "register",
-      "module",
-      "mouseX",
-      "mouseY",
-      "audioin",
-      "seq",
-    ].includes(name) &&
-    !config.internal &&
-    config.tags &&
-    !config.tags.includes("meta")
-);
-//.sort(([_, a], [_, b]) => a.type.localeCompare(b.type));
+const allNodes = Array.from(nodeRegistry.entries())
+  .filter(
+    ([name, config]) =>
+      ![
+        "out",
+        "n",
+        "register",
+        "module",
+        "mouseX",
+        "mouseY",
+        "audioin",
+        "seq",
+        "split", // has fn input
+        "apply", // has fn input
+        "bytebeat", // has fn input
+        "floatbeat", // has fn input
+        "map", // has fn input
+        "raw", // has fn input
+        "select", // has fn input
+      ].includes(name) &&
+      !config.internal &&
+      config.tags /* &&
+      !config.tags.includes("meta") */
+  )
+  .sort(([a], [b]) => a.localeCompare(b));
 
-const clockdiv = allNodes.find(([name]) => name === "clockdiv");
-clockdiv[1].tags = ["trigger"]; // change
+allNodes.find(([name]) => name === "clockdiv")[1].tags = ["trigger"]; // change
 
 let nInputs = (n) =>
   Array.from({ length: n }, (_, i) => ({ name: `${i + 1}` }));
@@ -58,7 +65,7 @@ allNodes.push([
   "src",
   {
     ins: [{ name: "channel" }],
-    tags: ["source"],
+    tags: ["meta"],
     description: `routes the given out channel back to create feedback`,
   },
 ]);
@@ -67,7 +74,11 @@ const allTags = allNodes
   .map(([_, config]) => config.tags)
   .flat()
   .filter((el, i, a) => a.indexOf(el) === i)
-  .filter((tag) => tag && !["distortion", "regular", "limiter"].includes(tag));
+  .filter(
+    (tag) =>
+      tag && !["distortion", "regular", "limiter", "external"].includes(tag)
+  )
+  .sort((a, b) => a.localeCompare(b));
 
 const categories = allTags.map((name, i) => ({
   kind: "category",
@@ -139,7 +150,7 @@ Blockly.Blocks["out"] = {
           check: "Number",
         },
       ],
-      colour: 0,
+      colour: 160,
     });
   },
 };
@@ -152,7 +163,7 @@ kabelsalatGenerator.forBlock["out"] = function (block, generator) {
   const channelCode = generator.valueToCode(block, "channel", 0);
   return `${inputCode}.out(${channelCode})`;
 };
-getCategory("source").contents.push({ kind: "block", type: "out" });
+getCategory("meta").contents.push({ kind: "block", type: "out" });
 
 allNodes.forEach(([name, config]) => {
   //console.log("register", name, config);
