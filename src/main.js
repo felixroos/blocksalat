@@ -73,7 +73,7 @@ function registerCodegen(name, inputs, output = "Number") {
     const args = block.inputList.map((input, i) => {
       if (input.type === Blockly.INPUT_VALUE) {
         const inputCode = generator.valueToCode(block, input.name, 0);
-        return inputCode || inputs[i].default;
+        return inputCode || inputs[i].default || 0;
       } else {
         throw new Error(`unexpected input value ${input.type}`);
       }
@@ -127,6 +127,9 @@ Blockly.Blocks["out"] = {
 kabelsalatGenerator.forBlock["out"] = function (block, generator) {
   const value = block.getFieldValue("NUM");
   const inputCode = generator.valueToCode(block, "input", 0);
+  if (!inputCode) {
+    return "n(0).out()";
+  }
   return `${inputCode}.out()`;
 };
 
