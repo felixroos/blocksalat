@@ -11,18 +11,54 @@ export const kabelsalatGenerator = new Blockly.Generator("kabelsalat");
 
 const allNodes = Array.from(nodeRegistry.entries()).filter(
   ([name, config]) =>
-    !["out", "n", "register", "module"].includes(name) &&
+    ![
+      "out",
+      "n",
+      "register",
+      "module",
+      "mouseX",
+      "mouseY",
+      "audioin",
+      "seq",
+    ].includes(name) &&
     !config.internal &&
     config.tags &&
     !config.tags.includes("meta")
 );
 //.sort(([_, a], [_, b]) => a.type.localeCompare(b.type));
 
+const clockdiv = allNodes.find(([name]) => name === "clockdiv");
+clockdiv[1].tags = ["trigger"]; // change
+
+let nInputs = (n) =>
+  Array.from({ length: n }, (_, i) => ({ name: `${i + 1}` }));
+
+[2, 4, 8, 16].forEach((n) => {
+  allNodes.push([
+    "poly" + n,
+    {
+      ins: nInputs(n),
+      tags: ["multi-channel"],
+      description: `split the signal into ${n} channels (you don't have to use all)`,
+    },
+  ]);
+});
+[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].forEach((n) => {
+  allNodes.push([
+    "seq" + n,
+    {
+      ins: [{ name: `trigger` }, ...nInputs(n)],
+      tags: ["sequencer"],
+      description: `cycles through ${n} steps. each time the trigger goes high, the next step goes to the output.`,
+    },
+  ]);
+});
+
 const allTags = allNodes
   .map(([_, config]) => config.tags)
   .flat()
   .filter((el, i, a) => a.indexOf(el) === i)
-  .filter(Boolean);
+  .filter((tag) => tag && !["distortion", "regular", "limiter"].includes(tag));
 
 const categories = allTags.map((name, i) => ({
   kind: "category",
@@ -111,26 +147,6 @@ allNodes.forEach(([name, config]) => {
       { name: "in0", default: 1 },
       { name: "in1", default: 1 },
     ];
-  } else if (["seq"].includes(name)) {
-    inputs = [
-      { name: "trig", default: 0 },
-      { name: "1", default: 0 },
-      { name: "2", default: 0 },
-      { name: "3", default: 0 },
-      { name: "4", default: 0 },
-      { name: "5", default: 0 },
-      { name: "6", default: 0 },
-      { name: "7", default: 0 },
-      { name: "8", default: 0 },
-      { name: "9", default: 0 },
-      { name: "10", default: 0 },
-      { name: "11", default: 0 },
-      { name: "12", default: 0 },
-      { name: "13", default: 0 },
-      { name: "14", default: 0 },
-      { name: "15", default: 0 },
-      { name: "16", default: 0 },
-    ];
   }
   Blockly.Blocks[name] = {
     init: function () {
@@ -178,6 +194,12 @@ allNodes.forEach(([name, config]) => {
       }
       return acc;
     }, []);
+    if (name.startsWith("poly")) {
+      name = "poly";
+    }
+    if (name.startsWith("seq")) {
+      name = "seq";
+    }
     const code = `${name}(${args.join(", ")})`;
 
     return [code, 0];
@@ -186,7 +208,6 @@ allNodes.forEach(([name, config]) => {
 
 Blockly.setLocale(locale);
 
-console.log("toolbox", toolbox);
 const workspace = Blockly.inject(document.getElementById("blockly"), {
   readOnly: false,
   theme: DarkTheme,
@@ -203,7 +224,6 @@ const workspace = Blockly.inject(document.getElementById("blockly"), {
 });
 
 const repl = new SalatRepl();
-console.log("repl", repl);
 
 function update() {
   var code = kabelsalatGenerator.workspaceToCode(workspace);
