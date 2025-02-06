@@ -113,6 +113,7 @@ allNodes.forEach(([name, config]) => {
     ];
   } else if (["seq"].includes(name)) {
     inputs = [
+      { name: "trig", default: 0 },
       { name: "1", default: 0 },
       { name: "2", default: 0 },
       { name: "3", default: 0 },
