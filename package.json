@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --base /blocksalat",
-    "preview": "vite preview --base /blocksalat",
+    "build": "vite build",
+    "preview": "vite preview",
     "postinstall": "cp -r node_modules/@kabelsalat/web/dist/assets public"
   },
   "devDependencies": {
