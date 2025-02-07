@@ -11,9 +11,6 @@ importers:
       '@blockly/theme-dark':
         specifier: ^7.0.10
         version: 7.0.10(blockly@11.2.1)
-      '@blockly/toolbox-search':
-        specifier: ^2.0.12
-        version: 2.0.12(blockly@11.2.1)
       '@kabelsalat/web':
         specifier: ^0.3.2
         version: 0.3.2
@@ -33,11 +30,6 @@ packages:
   '@blockly/theme-dark@7.0.10':
     resolution: {integrity: sha512-Wc6n115vt9alxzPkEwYtvBBGoPUV3gaYE00dvSKhqXTNoy1Xioujj9kT9VkGmdMO2mhgnJNczSpvxG8tcd4zLQ==}
     engines: {node: '>=8.17.0'}
-    peerDependencies:
-      blockly: ^11.0.0
-
-  '@blockly/toolbox-search@2.0.12':
-    resolution: {integrity: sha512-lZlBkWjW0pbU7gH8hiRQ9EkNy/sO7O4w4G5b49zeabmlfXxnXPrVVVxg+DVGGUifXqcNN5sGLQBrpbdPRJR+6w==}
     peerDependencies:
       blockly: ^11.0.0
 
@@ -577,10 +569,6 @@ snapshots:
       lru-cache: 10.4.3
 
   '@blockly/theme-dark@7.0.10(blockly@11.2.1)':
-    dependencies:
-      blockly: 11.2.1
-
-  '@blockly/toolbox-search@2.0.12(blockly@11.2.1)':
     dependencies:
       blockly: 11.2.1
 
