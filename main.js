@@ -20,7 +20,6 @@ const allNodes = Array.from(nodeRegistry.entries())
         "module",
         "mouseX",
         "mouseY",
-        "audioin",
         "seq",
         "split", // has fn input
         "apply", // has fn input
