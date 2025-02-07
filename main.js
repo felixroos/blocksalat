@@ -3,7 +3,7 @@ import "blockly/blocks";
 import * as locale from "blockly/msg/en";
 import "./style.css";
 import { SalatRepl, nodeRegistry } from "@kabelsalat/web";
-import "@blockly/toolbox-search";
+import "./plugins/toolbox-search/toolbox_search.ts";
 import DarkTheme from "@blockly/theme-dark";
 // import { FieldSlider } from "@blockly/field-slider";
 
@@ -39,7 +39,7 @@ const allNodes = Array.from(nodeRegistry.entries())
 allNodes.find(([name]) => name === "clockdiv")[1].tags = ["trigger"]; // change
 
 let nInputs = (n) =>
-  Array.from({ length: n }, (_, i) => ({ name: `${i + 1}` }));
+  Array.from({ length: n }, (_, i) => ({ name: `in${i + 1}` }));
 
 [2, 4, 8, 16].forEach((n) => {
   allNodes.push([
@@ -67,6 +67,14 @@ allNodes.push([
     ins: [{ name: "channel" }],
     tags: ["meta"],
     description: `routes the given out channel back to create feedback`,
+  },
+]);
+allNodes.push([
+  "stereo",
+  {
+    ins: [],
+    tags: ["meta"],
+    description: `splits to stereo. short for poly2(0,1)`,
   },
 ]);
 
@@ -124,12 +132,13 @@ Blockly.Blocks["n"] = {
       ],
       output: "Number",
       colour: 160,
+      tooltip: "a constant number",
     });
   },
 };
 kabelsalatGenerator.forBlock["n"] = function (block, generator) {
   const value = block.getFieldValue("NUM");
-  return [`n(${value})`, 0];
+  return [value, 0];
   //return [`n(${value})`, 0];
 };
 getCategory("math").contents.push({ kind: "block", type: "n" });
@@ -165,7 +174,25 @@ kabelsalatGenerator.forBlock["out"] = function (block, generator) {
   const channelCode = generator.valueToCode(block, "channel", 0);
   return `${inputCode}.out(${channelCode})`;
 };
-getCategory("meta").contents.push({ kind: "block", type: "out" });
+getCategory("meta").contents.push({
+  kind: "block",
+  type: "out",
+  inputs: {
+    input: {
+      shadow: {
+        type: "n",
+        fields: {
+          NUM: 0,
+        },
+      },
+    },
+    channel: {
+      shadow: {
+        type: "stereo",
+      },
+    },
+  },
+});
 
 allNodes.forEach(([name, config]) => {
   //console.log("register", name, config);
@@ -208,7 +235,14 @@ allNodes.forEach(([name, config]) => {
         args0: args,
         output: "Number",
         colour: getCategoryColor(config.tags[0]),
-        tooltip: config.description,
+        tooltip: `${config.description}\n${inputs
+          .map(
+            (input) =>
+              `${input.name}${
+                input.description ? ": " + input.description : ""
+              }`
+          )
+          .join("\n")}`,
         // helpUrl: "https://kabel.salat.dev/reference/",
       });
     },
@@ -256,8 +290,10 @@ allNodes.forEach(([name, config]) => {
     if (name.startsWith("seq")) {
       name = "seq";
     }
-    const code = `${name}(${args.join(", ")})`;
-
+    let code = `${name}(${args.join(", ")})`;
+    if (name === "stereo") {
+      code = "poly(0,1)";
+    }
     return [code, 0];
   };
 });
