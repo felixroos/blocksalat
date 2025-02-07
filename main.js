@@ -124,7 +124,7 @@ Blockly.Blocks["n"] = {
 };
 kabelsalatGenerator.forBlock["n"] = function (block, generator) {
   const value = block.getFieldValue("NUM");
-  return [`${value}`, 0];
+  return [`n(${value})`, 0];
   //return [`n(${value})`, 0];
 };
 getCategory("math").contents.push({ kind: "block", type: "n" });
@@ -274,16 +274,19 @@ function update() {
 window.addEventListener("click", function init() {
   update();
   window.removeEventListener("click", init);
+  workspace.addChangeListener((event) => {
+    //if (workspace.isDragging()) return;
+    if (!supportedEvents.has(event.type)) return;
+    update();
+  });
 });
 
-workspace.addChangeListener((event) => {
-  // console.log("event", event);
-  if (
-    ["move", "change", "block_field_intermediate_change"].includes(event.type)
-  ) {
-    update();
-  }
-});
+const supportedEvents = new Set([
+  Blockly.Events.BLOCK_CHANGE,
+  Blockly.Events.BLOCK_CREATE,
+  Blockly.Events.BLOCK_DELETE,
+  Blockly.Events.BLOCK_MOVE,
+]);
 
 const hash =
   window.location.hash.slice(1) ||
