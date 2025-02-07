@@ -204,8 +204,8 @@ allNodes.forEach(([name, config]) => {
     ];
   } else if (["add", "sub"].includes(name)) {
     inputs = [
-      { name: "in0", default: 1 },
-      { name: "in1", default: 1 },
+      { name: "in0", default: 0 },
+      { name: "in1", default: 0 },
     ];
   }
   Blockly.Blocks[name] = {
