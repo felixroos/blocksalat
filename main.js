@@ -5,6 +5,7 @@ import "./style.css";
 import { SalatRepl, nodeRegistry } from "@kabelsalat/web";
 import "@blockly/toolbox-search";
 import DarkTheme from "@blockly/theme-dark";
+// import { FieldSlider } from "@blockly/field-slider";
 
 export const kabelsalatGenerator = new Blockly.Generator("kabelsalat");
 
@@ -115,6 +116,11 @@ Blockly.Blocks["n"] = {
           name: "NUM",
           check: "Number",
         },
+        /* {
+          type: "field_slider",
+          name: "NUM",
+          value: 0,
+        }, */
       ],
       output: "Number",
       colour: 160,
@@ -131,13 +137,10 @@ getCategory("math").contents.push({ kind: "block", type: "n" });
 Blockly.Blocks["out"] = {
   init: function () {
     this.jsonInit({
-      message0: `out %1 in %2 channel %3`,
+      message0: `out %1 channel %2`,
       tooltip:
         "output to speakers. if channel is set, only channels 0 and 1 will go to speakers. can be used together with src to create feedback!",
       args0: [
-        {
-          type: "input_dummy",
-        },
         {
           type: "input_value",
           name: "input",
@@ -185,12 +188,21 @@ allNodes.forEach(([name, config]) => {
         name: input.name,
         check: "Number",
       }));
-      args.unshift({
-        type: "input_dummy",
-      });
-      let message = `${name} %1 ${inputs
-        .map((input, i) => `${input.name} %${i + 2}`)
-        .join(" ")}`;
+      const labels = [...inputs.map((input) => input.name)];
+
+      // if the first input is not "in", we can use the node name as label
+      //const skipFirstLabel = ["in", "input"].includes(inputs[0]?.name);
+      const skipFirstLabel = false; // always show, makes layout a bit calmer
+      if (skipFirstLabel) {
+        labels[0] = name;
+      } else {
+        args.unshift({
+          type: "input_dummy",
+        });
+        labels.unshift(name);
+      }
+
+      let message = labels.map((label, i) => `${label} %${i + 1}`).join(" ");
       this.jsonInit({
         message0: message,
         args0: args,
@@ -243,6 +255,7 @@ const workspace = Blockly.inject(document.getElementById("blockly"), {
   theme: DarkTheme,
   trashcan: false,
   sound: false,
+  //rtl: true,
   move: {
     scrollbars: true,
     drag: true,
