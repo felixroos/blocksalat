@@ -10,3 +10,7 @@ body {
 #generate {
   display: none;
 }
+
+.blocklyMainBackground {
+  opacity: 0;
+}
