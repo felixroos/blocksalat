@@ -138,8 +138,8 @@ Blockly.Blocks["n"] = {
 };
 kabelsalatGenerator.forBlock["n"] = function (block, generator) {
   const value = block.getFieldValue("NUM");
-  return [value, 0];
-  //return [`n(${value})`, 0];
+  //return [value, 0];
+  return [`n(${value})`, 0]; // n needed for out, which is chained (atm)
 };
 getCategory("math").contents.push({ kind: "block", type: "n" });
 
@@ -148,7 +148,7 @@ Blockly.Blocks["out"] = {
     this.jsonInit({
       message0: `out %1 channel %2`,
       tooltip:
-        "output to speakers. if channel is set, only channels 0 and 1 will go to speakers. can be used together with src to create feedback!",
+        "output to speakers. only channels 0 and 1 will go to the speakers. can be used together with src to create feedback!",
       args0: [
         {
           type: "input_value",
