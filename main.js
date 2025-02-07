@@ -222,6 +222,20 @@ allNodes.forEach(([name, config]) => {
       category.contents.push({
         kind: "block",
         type: name,
+        inputs: Object.fromEntries(
+          inputs.map((input) => [
+            input.name,
+            {
+              // https://developers.google.com/blockly/guides/configure/web/toolbox#shadow_blocks
+              shadow: {
+                type: "n",
+                fields: {
+                  NUM: input.default || 0,
+                },
+              },
+            },
+          ])
+        ),
       });
     });
 
