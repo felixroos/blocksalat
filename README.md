@@ -1,6 +1,8 @@
 # blocksalat
 
-this is a very rough sketch, trying out [blockly](https://www.npmjs.com/package/blockly) as a ui for [kabelsalat](https://kabel.salat.dev/learn/).
+a modular synth out of blocks.
+
+this is an experiment to use [blockly](https://www.npmjs.com/package/blockly) as a ui for [kabelsalat](https://kabel.salat.dev/learn/).
 
 ## examples
 
