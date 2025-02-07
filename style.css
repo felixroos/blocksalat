@@ -1,10 +1,28 @@
-#blockly {
-  height: 100vh;
-}
 body {
   margin: 0;
   padding: 0;
   background: #333;
+  font-family: monospace;
+}
+#container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#header {
+  display: flex;
+  justify-content: space-between;
+  height: 20px;
+  font-size: 1.2em;
+  color: white;
+  padding: 4px;
+  a {
+    color: white;
+  }
+}
+#blockly {
+  height: 100%;
+  width: 100%;
 }
 
 #generate {
@@ -13,4 +31,19 @@ body {
 
 .blocklyMainBackground {
   opacity: 0;
+}
+#clickhint {
+  cursor: pointer;
+  position: absolute;
+  z-index: 1000;
+  top: 0;
+  font-size: 2em;
+  color: white;
+  background-color: #00000090;
+  opacity: 80%;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

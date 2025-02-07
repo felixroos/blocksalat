@@ -299,7 +299,11 @@ allNodes.forEach(([name, config]) => {
 });
 
 Blockly.setLocale(locale);
-
+/* DarkTheme.fontStyle = {
+  family: "monospace",
+  //weight: "bold",
+  size: 10,
+}; */
 const workspace = Blockly.inject(document.getElementById("blockly"), {
   readOnly: false,
   theme: DarkTheme,
@@ -341,6 +345,7 @@ window.addEventListener("click", function init() {
     if (!supportedEvents.has(event.type)) return;
     update();
   });
+  this.document.getElementById("clickhint").remove();
 });
 
 const supportedEvents = new Set([
