@@ -285,6 +285,7 @@ const supportedEvents = new Set([
   Blockly.Events.BLOCK_CREATE,
   Blockly.Events.BLOCK_DELETE,
   Blockly.Events.BLOCK_MOVE,
+  Blockly.Events.BLOCK_FIELD_INTERMEDIATE_CHANGE,
 ]);
 
 const hash =
