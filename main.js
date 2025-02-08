@@ -2,7 +2,7 @@ import * as Blockly from "blockly/core";
 import "blockly/blocks";
 import * as locale from "blockly/msg/en";
 import "./style.css";
-import { SalatRepl, nodeRegistry } from "@kabelsalat/web";
+import { SalatRepl, nodeRegistry, register } from "@kabelsalat/web";
 import "./plugins/toolbox-search/toolbox_search.ts";
 import DarkTheme from "@blockly/theme-dark";
 // import { FieldSlider } from "@blockly/field-slider";
@@ -112,6 +112,9 @@ const allTags = allNodes
   )
   .sort((a, b) => a.localeCompare(b));
 
+// custom = register / input nodes + nodes created with them
+const customCategoryName = "custom 🧪";
+allTags.push(customCategoryName);
 // create a block category for each tag
 const categories = allTags.map((name, i) => ({
   kind: "category",
@@ -139,89 +142,16 @@ const toolbox = {
   ],
 };
 
-// defines custom n block
-Blockly.Blocks["n"] = {
-  init: function () {
-    this.jsonInit({
-      message0: `n %1`,
-      args0: [
-        {
-          type: "field_input",
-          name: "NUM",
-          check: "Number",
-        },
-        /* {
-          type: "field_slider",
-          name: "NUM",
-          value: 0,
-        }, */
-      ],
-      output: "Number",
-      colour: 160,
-      tooltip: "a constant number",
-    });
-  },
-};
-kabelsalatGenerator.forBlock["n"] = function (block, generator) {
-  const value = block.getFieldValue("NUM");
-  //return [value, 0];
-  return [`n(${value})`, 0]; // n needed for out, which is chained (atm)
-};
-getCategory("math").contents.push({ kind: "block", type: "n" });
-
-// define custom out block
-Blockly.Blocks["out"] = {
-  init: function () {
-    this.jsonInit({
-      message0: `out %1 channel %2`,
-      tooltip:
-        "output to speakers. only channels 0 and 1 will go to the speakers. can be used together with src to create feedback!",
-      args0: [
-        {
-          type: "input_value",
-          name: "input",
-          check: "Number",
-        },
-        {
-          type: "input_value",
-          name: "channel",
-          check: "Number",
-        },
-      ],
-      colour: 160,
-    });
-  },
-};
-kabelsalatGenerator.forBlock["out"] = function (block, generator) {
-  const inputCode = generator.valueToCode(block, "input", 0);
-  if (!inputCode) {
-    return "n(0).out()";
-  }
-  const channelCode = generator.valueToCode(block, "channel", 0);
-  return `${inputCode}.out(${channelCode})`;
-};
-getCategory("meta").contents.push({
-  kind: "block",
-  type: "out",
-  inputs: {
-    input: {
-      shadow: {
-        type: "n",
-        fields: {
-          NUM: 0,
-        },
-      },
+// helper to register a new blockly block
+function registerBlock(name, json) {
+  Blockly.Blocks[name] = {
+    init: function () {
+      this.jsonInit(json);
     },
-    channel: {
-      shadow: {
-        type: "stereo",
-      },
-    },
-  },
-});
+  };
+}
 
-// define all nodes
-allNodes.forEach(([name, config]) => {
+function registerBlockFromKabelsalat(name, config) {
   //console.log("register", name, config);
   let inputs = config.ins || [];
   // fix default inputs for arithmetic (they are dynamic in kabelsalat)
@@ -239,45 +169,41 @@ allNodes.forEach(([name, config]) => {
       { name: "in1", default: 0 },
     ];
   }
-  // add block definition
-  Blockly.Blocks[name] = {
-    init: function () {
-      let args = inputs.map((input) => ({
-        type: "input_value",
-        name: input.name,
-        check: "Number",
-      }));
-      const labels = [...inputs.map((input) => input.name)];
 
-      // if the first input is not "in", we can use the node name as label
-      //const skipFirstLabel = ["in", "input"].includes(inputs[0]?.name);
-      const skipFirstLabel = false; // always show, makes layout a bit calmer
-      if (skipFirstLabel) {
-        labels[0] = name;
-      } else {
-        args.unshift({
-          type: "input_dummy",
-        });
-        labels.unshift(name);
-      }
-      let message = labels.map((label, i) => `${label} %${i + 1}`).join(" ");
-      this.jsonInit({
-        message0: message,
-        args0: args,
-        output: "Number",
-        colour: getCategoryColor(config.tags[0]),
-        tooltip: `${config.description}\n${inputs
-          .map(
-            (input) =>
-              `${input.name}${
-                input.description ? ": " + input.description : ""
-              }`
-          )
-          .join("\n")}`,
-        // helpUrl: "https://kabel.salat.dev/reference/",
-      });
-    },
-  };
+  let args = inputs.map((input) => ({
+    type: "input_value",
+    name: input.name,
+    check: "Number",
+  }));
+  const labels = [...inputs.map((input) => input.name)];
+
+  // if the first input is not "in", we can use the node name as label
+  //const skipFirstLabel = ["in", "input"].includes(inputs[0]?.name);
+  const skipFirstLabel = false; // always show, makes layout a bit calmer
+  if (skipFirstLabel) {
+    labels[0] = name;
+  } else {
+    args.unshift({
+      type: "input_dummy",
+    });
+    labels.unshift(name);
+  }
+  let message = labels.map((label, i) => `${label} %${i + 1}`).join(" ");
+  // add block definition
+  registerBlock(name, {
+    message0: message,
+    args0: args,
+    output: "Number",
+    colour: getCategoryColor(config.tags[0]),
+    tooltip: `${config.description}\n${inputs
+      .map(
+        (input) =>
+          `${input.name}${input.description ? ": " + input.description : ""}`
+      )
+      .join("\n")}`,
+    // helpUrl: "https://kabel.salat.dev/reference/",
+  });
+
   if (!config.tags) {
     console.warn("no tags", name);
   }
@@ -285,7 +211,7 @@ allNodes.forEach(([name, config]) => {
   categories
     .filter((category) => (config.tags || []).includes(category.name))
     .forEach((category) => {
-      category.contents.push({
+      const config = {
         kind: "block",
         type: name,
         // add a shadow "n" block for each input, using the input's default (fallback to 0)
@@ -303,7 +229,8 @@ allNodes.forEach(([name, config]) => {
             },
           ])
         ),
-      });
+      };
+      category.contents.push(config);
     });
   // define how to generate code for the node
   kabelsalatGenerator.forBlock[name] = function (block, generator) {
@@ -333,6 +260,189 @@ allNodes.forEach(([name, config]) => {
     }
     return [code, 0];
   };
+}
+
+window.registerBlockFromKabelsalat = registerBlockFromKabelsalat;
+
+// this function is called from the "register" block
+function registerCustomBlock(name, fn, args) {
+  //console.log("registerCustomBlock", name, args);
+  const config = {
+    ins: args.map((name) => ({ name })),
+    tags: [customCategoryName],
+    description: "split the signal into n channels",
+  };
+  registerBlockFromKabelsalat(name, config);
+
+  const registered = register(name, fn);
+
+  const customCategory = workspace
+    .getToolbox()
+    .getToolboxItems()
+    .find((cat) => cat.getName() === customCategoryName);
+  const contents = customCategory.getContents();
+  if (!contents.find((def) => def.type === name)) {
+    contents.push({ kind: "block", type: name });
+    customCategory.updateFlyoutContents(contents);
+  }
+
+  return registered;
+}
+window.registerCustomBlock = registerCustomBlock;
+
+// define all nodes
+allNodes.forEach(([name, config]) => registerBlockFromKabelsalat(name, config));
+const systemBlockColor = "#333";
+
+// defines custom n block
+registerBlock("n", {
+  message0: `n %1`,
+  args0: [
+    {
+      type: "field_input",
+      name: "NUM",
+      check: "Number",
+    },
+    /* {
+      type: "field_slider",
+      name: "NUM",
+      value: 0,
+    }, */
+  ],
+  output: "Number",
+  colour: systemBlockColor,
+  tooltip: "a constant number",
+});
+
+kabelsalatGenerator.forBlock["n"] = function (block, generator) {
+  const value = block.getFieldValue("NUM");
+  //return [value, 0];
+  return [`n(${value})`, 0]; // n needed for out, which is chained (atm)
+};
+getCategory("math").contents.push({ kind: "block", type: "n" });
+
+// define custom out block
+registerBlock("out", {
+  message0: `out %1 channel %2`,
+  tooltip:
+    "output to speakers. only channels 0 and 1 will go to the speakers. can be used together with src to create feedback!",
+  args0: [
+    {
+      type: "input_value",
+      name: "input",
+      check: "Number",
+    },
+    {
+      type: "input_value",
+      name: "channel",
+      check: "Number",
+    },
+  ],
+  colour: systemBlockColor,
+});
+
+kabelsalatGenerator.forBlock["out"] = function (block, generator) {
+  const inputCode = generator.valueToCode(block, "input", 0);
+  if (!inputCode) {
+    return "n(0).out()";
+  }
+  const channelCode = generator.valueToCode(block, "channel", 0);
+  return `${inputCode}.out(${channelCode})`;
+};
+getCategory("meta").contents.push({
+  kind: "block",
+  type: "out",
+  inputs: {
+    input: {
+      shadow: {
+        type: "n",
+        fields: {
+          NUM: 0,
+        },
+      },
+    },
+    channel: {
+      shadow: {
+        type: "stereo",
+      },
+    },
+  },
+});
+
+// defines custom "input" block
+registerBlock("input", {
+  message0: `input %1`,
+  args0: [
+    {
+      type: "field_input",
+      name: "name",
+      check: "String",
+    },
+  ],
+  output: "Number",
+  colour: systemBlockColor,
+  tooltip: "defines a block input for a custom block",
+});
+
+kabelsalatGenerator.forBlock["input"] = function (block) {
+  const name = block.getFieldValue("name");
+  return [name, 0];
+};
+getCategory(customCategoryName).contents.push({ kind: "block", type: "input" });
+
+// defines custom "register" block
+registerBlock("register", {
+  message0: `register %1 as %2`,
+  args0: [
+    {
+      type: "field_input",
+      name: "name",
+      //check: "String",
+    },
+    {
+      type: "input_value",
+      name: "input",
+      check: "Number",
+    },
+  ],
+  colour: systemBlockColor,
+  tooltip: "defines a new block inside the workspace",
+});
+
+kabelsalatGenerator.forBlock["register"] = function (block, generator) {
+  const name = block.getFieldValue("name");
+  if (!name) {
+    return "";
+  }
+  // depth first search arg names (input blocks)
+  let getArgs = (block, args = []) => {
+    const children = block.getChildren();
+    if (block.type === "input") {
+      args.push(block.getFieldValue("name"));
+    }
+    if (children.length) {
+      for (let child of children) {
+        getArgs(child, args);
+      }
+    }
+    return args;
+  };
+  const args = getArgs(block).filter((arg, i, args) => args.indexOf(arg) === i);
+  //console.log("args", args);
+
+  let code = generator.valueToCode(block, "input", 0);
+  if (!code) {
+    code = "n(0)";
+  }
+  //return [value, 0];
+  return `const ${name} = registerCustomBlock('${name}', 
+  (${args.join(", ")}) => ${code},
+  [${args.map((arg) => `'${arg}'`).join(",")}]
+)`;
+};
+getCategory(customCategoryName).contents.push({
+  kind: "block",
+  type: "register",
 });
 
 // init blockly workspace
@@ -366,6 +476,7 @@ const repl = new SalatRepl();
 function update() {
   // generate and run kabelsalat code
   const code = kabelsalatGenerator.workspaceToCode(workspace);
+  console.log("run:");
   console.log(code);
   repl.run(code);
   // persist workspace state to url hash, using hashed json
@@ -401,6 +512,30 @@ const hash =
 
 try {
   const json = JSON.parse(atob(hash)); // convert hash to oject
+  console.log("load", json);
+
+  // before loading the full json, we need to check if it contains "register" nodes
+  // if yes, we need to run a "preflight" pass to make sure custom blocks are defined
+  const registerBlocks = json.blocks.blocks.filter(
+    (block) => block.type === "register"
+  );
+  if (registerBlocks.length) {
+    const preflightWorkspace = {
+      blocks: {
+        languageVersion: 0,
+        blocks: registerBlocks,
+      },
+    };
+    Blockly.serialization.workspaces.load(preflightWorkspace, workspace);
+    const preflightCode = kabelsalatGenerator.workspaceToCode(workspace);
+    console.log("preflight:");
+    console.log(preflightCode);
+    Function(preflightCode)();
+  }
+
+  // problem: any custom nodes in this json won't be registered, because the code didn't run yet..
+  // to run the code, we need to generate it, which we can only do if the workspace is loaded...
+  // deadlock 3000
   Blockly.serialization.workspaces.load(json, workspace); // load to blockly
 } catch (err) {
   console.error("could not init code", err);
