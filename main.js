@@ -143,12 +143,13 @@ const toolbox = {
 };
 
 // helper to register a new blockly block
-function registerBlock(name, json) {
+function registerBlock(name, json, compile) {
   Blockly.Blocks[name] = {
     init: function () {
       this.jsonInit(json);
     },
   };
+  kabelsalatGenerator.forBlock[name] = compile;
 }
 
 function registerBlockFromKabelsalat(name, config) {
@@ -188,25 +189,56 @@ function registerBlockFromKabelsalat(name, config) {
     });
     labels.unshift(name);
   }
-  let message = labels.map((label, i) => `${label} %${i + 1}`).join(" ");
-  // add block definition
-  registerBlock(name, {
-    message0: message,
-    args0: args,
-    output: "Number",
-    colour: getCategoryColor(config.tags[0]),
-    tooltip: `${config.description}\n${inputs
-      .map(
-        (input) =>
-          `${input.name}${input.description ? ": " + input.description : ""}`
-      )
-      .join("\n")}`,
-    // helpUrl: "https://kabel.salat.dev/reference/",
-  });
 
   if (!config.tags) {
     console.warn("no tags", name);
   }
+
+  // add block definition
+  registerBlock(
+    name,
+    {
+      message0: labels.map((label, i) => `${label} %${i + 1}`).join(" "),
+      args0: args,
+      output: "Number",
+      colour: getCategoryColor(config.tags[0]),
+      tooltip: `${config.description}\n${inputs
+        .map(
+          (input) =>
+            `${input.name}${input.description ? ": " + input.description : ""}`
+        )
+        .join("\n")}`,
+      // helpUrl: "https://kabel.salat.dev/reference/",
+    },
+    function compile(block, generator) {
+      const args = block.inputList.reduce((acc, input, i) => {
+        if (input.type === Blockly.INPUT_VALUE) {
+          const inputCode = generator.valueToCode(block, input.name, 0);
+          acc.push(inputCode || inputs[i]?.default || 0);
+        } else if (input.type !== 5) {
+          // 5 = dummy
+          console.warn(`olala.. unexpected input value ${input.type}`);
+        }
+        return acc;
+      }, []);
+      // rename polyN to poly
+      if (name.startsWith("poly")) {
+        name = "poly";
+      }
+      // rename seqN to seq
+      if (name.startsWith("seq")) {
+        name = "seq";
+      }
+      // each block compiles to a simple function call
+      let code = `${name}(${args.join(", ")})`;
+      // stereo node is just a fake variable
+      if (name === "stereo") {
+        code = "poly(0,1)";
+      }
+      return [code, 0];
+    }
+  );
+
   // add block to toolbox, into every category that matches the node tags
   categories
     .filter((category) => (config.tags || []).includes(category.name))
@@ -232,34 +264,6 @@ function registerBlockFromKabelsalat(name, config) {
       };
       category.contents.push(config);
     });
-  // define how to generate code for the node
-  kabelsalatGenerator.forBlock[name] = function (block, generator) {
-    const args = block.inputList.reduce((acc, input, i) => {
-      if (input.type === Blockly.INPUT_VALUE) {
-        const inputCode = generator.valueToCode(block, input.name, 0);
-        acc.push(inputCode || inputs[i]?.default || 0);
-      } else if (input.type !== 5) {
-        // 5 = dummy
-        console.warn(`olala.. unexpected input value ${input.type}`);
-      }
-      return acc;
-    }, []);
-    // rename polyN to poly
-    if (name.startsWith("poly")) {
-      name = "poly";
-    }
-    // rename seqN to seq
-    if (name.startsWith("seq")) {
-      name = "seq";
-    }
-    // each block compiles to a simple function call
-    let code = `${name}(${args.join(", ")})`;
-    // stereo node is just a fake variable
-    if (name === "stereo") {
-      code = "poly(0,1)";
-    }
-    return [code, 0];
-  };
 }
 
 window.registerBlockFromKabelsalat = registerBlockFromKabelsalat;
@@ -295,60 +299,66 @@ allNodes.forEach(([name, config]) => registerBlockFromKabelsalat(name, config));
 const systemBlockColor = "#333";
 
 // defines custom n block
-registerBlock("n", {
-  message0: `n %1`,
-  args0: [
-    {
-      type: "field_input",
-      name: "NUM",
-      check: "Number",
-    },
-    /* {
+registerBlock(
+  "n",
+  {
+    message0: `n %1`,
+    args0: [
+      {
+        type: "field_input",
+        name: "NUM",
+        check: "Number",
+      },
+      /* {
       type: "field_slider",
       name: "NUM",
       value: 0,
     }, */
-  ],
-  output: "Number",
-  colour: systemBlockColor,
-  tooltip: "a constant number",
-});
+    ],
+    output: "Number",
+    colour: systemBlockColor,
+    tooltip: "a constant number",
+  },
+  function compile(block, generator) {
+    const value = block.getFieldValue("NUM");
+    //return [value, 0];
+    return [`n(${value})`, 0]; // n needed for out, which is chained (atm)
+  }
+);
 
-kabelsalatGenerator.forBlock["n"] = function (block, generator) {
-  const value = block.getFieldValue("NUM");
-  //return [value, 0];
-  return [`n(${value})`, 0]; // n needed for out, which is chained (atm)
-};
 getCategory("math").contents.push({ kind: "block", type: "n" });
 
 // define custom out block
-registerBlock("out", {
-  message0: `out %1 channel %2`,
-  tooltip:
-    "output to speakers. only channels 0 and 1 will go to the speakers. can be used together with src to create feedback!",
-  args0: [
-    {
-      type: "input_value",
-      name: "input",
-      check: "Number",
-    },
-    {
-      type: "input_value",
-      name: "channel",
-      check: "Number",
-    },
-  ],
-  colour: systemBlockColor,
-});
-
-kabelsalatGenerator.forBlock["out"] = function (block, generator) {
-  const inputCode = generator.valueToCode(block, "input", 0);
-  if (!inputCode) {
-    return "n(0).out()";
+registerBlock(
+  "out",
+  {
+    message0: `out %1 channel %2`,
+    tooltip:
+      "output to speakers. only channels 0 and 1 will go to the speakers. can be used together with src to create feedback!",
+    args0: [
+      {
+        type: "input_value",
+        name: "input",
+        check: "Number",
+      },
+      {
+        type: "input_value",
+        name: "channel",
+        check: "Number",
+      },
+    ],
+    colour: systemBlockColor,
+  },
+  function compile(block, generator) {
+    const inputCode = generator.valueToCode(block, "input", 0);
+    if (!inputCode) {
+      return "n(0).out()";
+    }
+    const channelCode = generator.valueToCode(block, "channel", 0);
+    return `${inputCode}.out(${channelCode})`;
   }
-  const channelCode = generator.valueToCode(block, "channel", 0);
-  return `${inputCode}.out(${channelCode})`;
-};
+);
+
 getCategory("meta").contents.push({
   kind: "block",
   type: "out",
@@ -370,76 +380,84 @@ getCategory("meta").contents.push({
 });
 
 // defines custom "input" block
-registerBlock("input", {
-  message0: `input %1`,
-  args0: [
-    {
-      type: "field_input",
-      name: "name",
-      check: "String",
-    },
-  ],
-  output: "Number",
-  colour: systemBlockColor,
-  tooltip: "defines a block input for a custom block",
-});
+registerBlock(
+  "input",
+  {
+    message0: `input %1`,
+    args0: [
+      {
+        type: "field_input",
+        name: "name",
+        check: "String",
+      },
+    ],
+    output: "Number",
+    colour: systemBlockColor,
+    tooltip: "defines a block input for a custom block",
+  },
+  function compile(block) {
+    const name = block.getFieldValue("name");
+    return [name, 0];
+  }
+);
 
-kabelsalatGenerator.forBlock["input"] = function (block) {
-  const name = block.getFieldValue("name");
-  return [name, 0];
-};
 getCategory(customCategoryName).contents.push({ kind: "block", type: "input" });
 
 // defines custom "register" block
-registerBlock("register", {
-  message0: `register %1 as %2`,
-  args0: [
-    {
-      type: "field_input",
-      name: "name",
-      //check: "String",
-    },
-    {
-      type: "input_value",
-      name: "input",
-      check: "Number",
-    },
-  ],
-  colour: systemBlockColor,
-  tooltip: "defines a new block inside the workspace",
-});
-
-kabelsalatGenerator.forBlock["register"] = function (block, generator) {
-  const name = block.getFieldValue("name");
-  if (!name) {
-    return "";
-  }
-  // depth first search arg names (input blocks)
-  let getArgs = (block, args = []) => {
-    const children = block.getChildren();
-    if (block.type === "input") {
-      args.push(block.getFieldValue("name"));
+registerBlock(
+  "register",
+  {
+    message0: `register %1 as %2`,
+    args0: [
+      {
+        type: "field_input",
+        name: "name",
+        //check: "String",
+      },
+      {
+        type: "input_value",
+        name: "input",
+        check: "Number",
+      },
+    ],
+    colour: systemBlockColor,
+    tooltip: "defines a new block inside the workspace",
+  },
+  function compile(block, generator) {
+    const name = block.getFieldValue("name");
+    if (!name) {
+      return "";
     }
-    if (children.length) {
-      for (let child of children) {
-        getArgs(child, args);
+    // depth first search arg names (input blocks)
+    let getArgs = (block, args = []) => {
+      const children = block.getChildren();
+      if (block.type === "input") {
+        args.push(block.getFieldValue("name"));
       }
-    }
-    return args;
-  };
-  const args = getArgs(block).filter((arg, i, args) => args.indexOf(arg) === i);
-  //console.log("args", args);
+      if (children.length) {
+        for (let child of children) {
+          getArgs(child, args);
+        }
+      }
+      return args;
+    };
+    const args = getArgs(block).filter(
+      (arg, i, args) => args.indexOf(arg) === i
+    );
+    //console.log("args", args);
 
-  let code = generator.valueToCode(block, "input", 0);
-  if (!code) {
-    code = "n(0)";
-  }
-  //return [value, 0];
-  return `const ${name} = registerCustomBlock('${name}', 
+    let code = generator.valueToCode(block, "input", 0);
+    if (!code) {
+      code = "n(0)";
+    }
+    //return [value, 0];
+    return `const ${name} = registerCustomBlock('${name}', 
   (${args.join(", ")}) => ${code},
   [${args.map((arg) => `'${arg}'`).join(",")}]
 )`;
-};
+  }
+);
+
 getCategory(customCategoryName).contents.push({
   kind: "block",
   type: "register",
