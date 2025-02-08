@@ -7,10 +7,19 @@ import "./plugins/toolbox-search/toolbox_search.ts";
 import DarkTheme from "@blockly/theme-dark";
 // import { FieldSlider } from "@blockly/field-slider";
 
+// define custom code generator for kabelsalat
 export const kabelsalatGenerator = new Blockly.Generator("kabelsalat");
 
 Blockly.ContextMenuItems.registerCommentOptions();
+Blockly.setLocale(locale);
+/* DarkTheme.fontStyle = {
+  family: "monospace",
+  //weight: "bold",
+  size: 10,
+}; */
 
+// get the names of all nodes from the kabelsalat nodeRegistry
+// filter out names that are either handled in a special way (out, n) or ones that don't work with blockly
 const allNodes = Array.from(nodeRegistry.entries())
   .filter(
     ([name, config]) =>
@@ -36,11 +45,18 @@ const allNodes = Array.from(nodeRegistry.entries())
   )
   .sort(([a], [b]) => a.localeCompare(b));
 
+// change tags of clockdiv node (it's the only node with category "clock" -> tbd fix in kabelsalat)
 allNodes.find(([name]) => name === "clockdiv")[1].tags = ["trigger"]; // change
 
+// helper to create n inputs
 let nInputs = (n) =>
   Array.from({ length: n }, (_, i) => ({ name: `in${i + 1}` }));
 
+// here, we create different variants for nodes with dynamic arguments
+// theoretically, dynamic inputs are possible with custom nodes in blockly
+// but for now, let's create different variants for the same node
+
+// create different poly node variants
 [2, 4, 8, 16].forEach((n) => {
   allNodes.push([
     "poly" + n,
@@ -51,6 +67,8 @@ let nInputs = (n) =>
     },
   ]);
 });
+
+// create different seq node variants
 [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].forEach((n) => {
   allNodes.push([
     "seq" + n,
@@ -61,6 +79,8 @@ let nInputs = (n) =>
     },
   ]);
 });
+
+// define src node manually, as its not in the registry
 allNodes.push([
   "src",
   {
@@ -69,6 +89,8 @@ allNodes.push([
     description: `routes the given out channel back to create feedback`,
   },
 ]);
+// define stereo node that can be used as a shadow node for out.channel
+// see below for special if branch, ( search "stereo" )
 allNodes.push([
   "stereo",
   {
@@ -78,16 +100,19 @@ allNodes.push([
   },
 ]);
 
+// get list of all unique tags from all nodes
 const allTags = allNodes
   .map(([_, config]) => config.tags)
   .flat()
   .filter((el, i, a) => a.indexOf(el) === i)
   .filter(
-    (tag) =>
-      tag && !["distortion", "regular", "limiter", "external"].includes(tag)
+    (
+      tag // filter out some tags that are too redundant
+    ) => tag && !["distortion", "regular", "limiter", "external"].includes(tag)
   )
   .sort((a, b) => a.localeCompare(b));
 
+// create a block category for each tag
 const categories = allTags.map((name, i) => ({
   kind: "category",
   name: name,
@@ -98,10 +123,10 @@ const categories = allTags.map((name, i) => ({
 const getCategory = (name) => categories.find((cat) => cat.name === name);
 const getCategoryIndex = (name) =>
   categories.findIndex((cat) => cat.name === name);
-
 const getCategoryColor = (name) =>
   Math.round(((getCategoryIndex(name) + 1) / allTags.length) * 360);
 
+// blockly toolbox definition
 const toolbox = {
   kind: "categoryToolbox",
   contents: [
@@ -114,6 +139,7 @@ const toolbox = {
   ],
 };
 
+// defines custom n block
 Blockly.Blocks["n"] = {
   init: function () {
     this.jsonInit({
@@ -143,6 +169,7 @@ kabelsalatGenerator.forBlock["n"] = function (block, generator) {
 };
 getCategory("math").contents.push({ kind: "block", type: "n" });
 
+// define custom out block
 Blockly.Blocks["out"] = {
   init: function () {
     this.jsonInit({
@@ -165,7 +192,6 @@ Blockly.Blocks["out"] = {
     });
   },
 };
-
 kabelsalatGenerator.forBlock["out"] = function (block, generator) {
   const inputCode = generator.valueToCode(block, "input", 0);
   if (!inputCode) {
@@ -194,9 +220,14 @@ getCategory("meta").contents.push({
   },
 });
 
+// define all nodes
 allNodes.forEach(([name, config]) => {
   //console.log("register", name, config);
   let inputs = config.ins || [];
+  // fix default inputs for arithmetic (they are dynamic in kabelsalat)
+  // tbd maybe also add variants for these, like add2 add3 ?
+  // might be too much, we can also do add(a, add(b,c)) instead of add(a,b,c)
+  // alternatively, we could do addpoly(poly(a,b,c)) = add(a,b,c)
   if (["mul", "div"].includes(name)) {
     inputs = [
       { name: "in0", default: 1 },
@@ -208,6 +239,7 @@ allNodes.forEach(([name, config]) => {
       { name: "in1", default: 0 },
     ];
   }
+  // add block definition
   Blockly.Blocks[name] = {
     init: function () {
       let args = inputs.map((input) => ({
@@ -228,7 +260,6 @@ allNodes.forEach(([name, config]) => {
         });
         labels.unshift(name);
       }
-
       let message = labels.map((label, i) => `${label} %${i + 1}`).join(" ");
       this.jsonInit({
         message0: message,
@@ -250,12 +281,14 @@ allNodes.forEach(([name, config]) => {
   if (!config.tags) {
     console.warn("no tags", name);
   }
+  // add block to toolbox, into every category that matches the node tags
   categories
     .filter((category) => (config.tags || []).includes(category.name))
     .forEach((category) => {
       category.contents.push({
         kind: "block",
         type: name,
+        // add a shadow "n" block for each input, using the input's default (fallback to 0)
         inputs: Object.fromEntries(
           inputs.map((input) => [
             input.name,
@@ -272,7 +305,7 @@ allNodes.forEach(([name, config]) => {
         ),
       });
     });
-
+  // define how to generate code for the node
   kabelsalatGenerator.forBlock[name] = function (block, generator) {
     const args = block.inputList.reduce((acc, input, i) => {
       if (input.type === Blockly.INPUT_VALUE) {
@@ -284,13 +317,17 @@ allNodes.forEach(([name, config]) => {
       }
       return acc;
     }, []);
+    // rename polyN to poly
     if (name.startsWith("poly")) {
       name = "poly";
     }
+    // rename seqN to seq
     if (name.startsWith("seq")) {
       name = "seq";
     }
+    // each block compiles to a simple function call
     let code = `${name}(${args.join(", ")})`;
+    // stereo node is just a fake variable
     if (name === "stereo") {
       code = "poly(0,1)";
     }
@@ -298,12 +335,7 @@ allNodes.forEach(([name, config]) => {
   };
 });
 
-Blockly.setLocale(locale);
-/* DarkTheme.fontStyle = {
-  family: "monospace",
-  //weight: "bold",
-  size: 10,
-}; */
+// init blockly workspace
 const workspace = Blockly.inject(document.getElementById("blockly"), {
   readOnly: false,
   theme: DarkTheme,
@@ -327,16 +359,30 @@ const workspace = Blockly.inject(document.getElementById("blockly"), {
   toolbox,
 });
 
+// init kabelsalat repl
 const repl = new SalatRepl();
 
+// runs each time something changes
 function update() {
-  var code = kabelsalatGenerator.workspaceToCode(workspace);
+  // generate and run kabelsalat code
+  const code = kabelsalatGenerator.workspaceToCode(workspace);
   console.log(code);
   repl.run(code);
+  // persist workspace state to url hash, using hashed json
   const json = Blockly.serialization.workspaces.save(workspace);
   window.location.hash = "#" + btoa(JSON.stringify(json));
 }
 
+// events that should trigger an update
+const supportedEvents = new Set([
+  Blockly.Events.BLOCK_CHANGE,
+  Blockly.Events.BLOCK_CREATE,
+  Blockly.Events.BLOCK_DELETE,
+  Blockly.Events.BLOCK_MOVE,
+  Blockly.Events.BLOCK_FIELD_INTERMEDIATE_CHANGE,
+]);
+
+// first document click runs the patch, adds change listener + removes hint
 window.addEventListener("click", function init() {
   update();
   window.removeEventListener("click", init);
@@ -348,23 +394,14 @@ window.addEventListener("click", function init() {
   this.document.getElementById("clickhint").remove();
 });
 
-const supportedEvents = new Set([
-  Blockly.Events.BLOCK_CHANGE,
-  Blockly.Events.BLOCK_CREATE,
-  Blockly.Events.BLOCK_DELETE,
-  Blockly.Events.BLOCK_MOVE,
-  Blockly.Events.BLOCK_FIELD_INTERMEDIATE_CHANGE,
-]);
-
+// get hash from url or use default one
 const hash =
   window.location.hash.slice(1) ||
   "eyJibG9ja3MiOnsibGFuZ3VhZ2VWZXJzaW9uIjowLCJibG9ja3MiOlt7InR5cGUiOiJvdXQiLCJpZCI6Ik15fVBrSUA1WjhWNk5UXWt7Ui1DIiwieCI6MTIxLCJ5IjoxMDAsImlucHV0cyI6eyJpbnB1dCI6eyJibG9jayI6eyJ0eXBlIjoibHBmIiwiaWQiOiJ2SiRBNklockojXlAkMzd+YEBWWyIsImlucHV0cyI6eyJpbiI6eyJibG9jayI6eyJ0eXBlIjoic2F3IiwiaWQiOiJ9Uz0wYVtOSXp6V1JPYGNybEh1aSIsImlucHV0cyI6eyJmcmVxIjp7ImJsb2NrIjp7InR5cGUiOiJuIiwiaWQiOiJbSUN0cW9+UFd3S2AyOF50QWhELSIsImZpZWxkcyI6eyJOVU0iOiI1NSJ9fX19fX0sImN1dG9mZiI6eyJibG9jayI6eyJ0eXBlIjoicmFuZ2UiLCJpZCI6InJvZEoxY0AjISxbeWBDbDBjLDAkIiwiaW5wdXRzIjp7ImluIjp7ImJsb2NrIjp7InR5cGUiOiJzaW5lIiwiaWQiOiJfREg7X1ZxUEhwM0NiQlk0JFFaPyIsImlucHV0cyI6eyJmcmVxIjp7ImJsb2NrIjp7InR5cGUiOiJuIiwiaWQiOiJSaCVjJEFPQ3g3Zj1XLSVUaFZgNyIsImZpZWxkcyI6eyJOVU0iOiIuMiJ9fX19fX0sIm1pbiI6eyJibG9jayI6eyJ0eXBlIjoibiIsImlkIjoiJUl3Y3JES1ZRc1ptQitiaSkyengiLCJmaWVsZHMiOnsiTlVNIjoiLjMifX19LCJtYXgiOnsiYmxvY2siOnsidHlwZSI6Im4iLCJpZCI6IlF3cHQocjd1Sld0TFBiOzdabDhJIiwiZmllbGRzIjp7Ik5VTSI6Ii41In19fX19fSwicmVzbyI6eyJibG9jayI6eyJ0eXBlIjoibiIsImlkIjoiV21GIXY/Szs0LzNXMS9JKWBuQ08iLCJmaWVsZHMiOnsiTlVNIjoiLjIifX19fX19fX1dfX0";
 
-const urlCode = atob(hash);
-
 try {
-  const json = JSON.parse(urlCode);
-  Blockly.serialization.workspaces.load(json, workspace);
+  const json = JSON.parse(atob(hash)); // convert hash to oject
+  Blockly.serialization.workspaces.load(json, workspace); // load to blockly
 } catch (err) {
   console.error("could not init code", err);
 }
