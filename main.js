@@ -403,6 +403,28 @@ registerBlock(
 
 getCategory(customCategoryName).contents.push({ kind: "block", type: "input" });
 
+function getBlockChildren(block, filterFn) {
+  // depth first search arg names (input blocks)
+  let getChildren = (block, args = []) => {
+    const children = block.getChildren();
+    if (filterFn(block)) {
+      args.push(block);
+    }
+    if (children.length) {
+      for (let child of children) {
+        getChildren(child, args);
+      }
+    }
+    return args;
+  };
+  return getChildren(block);
+}
+function getBlockInputs(block) {
+  return getBlockChildren(block, (child) => child.type === "input")
+    .map((block) => block.getFieldValue("name"))
+    .filter((arg, i, args) => args.indexOf(arg) === i);
+}
+
 // defines custom "register" block
 registerBlock(
   "register",
@@ -428,23 +450,7 @@ registerBlock(
     if (!name) {
       return "";
     }
-    // depth first search arg names (input blocks)
-    let getArgs = (block, args = []) => {
-      const children = block.getChildren();
-      if (block.type === "input") {
-        args.push(block.getFieldValue("name"));
-      }
-      if (children.length) {
-        for (let child of children) {
-          getArgs(child, args);
-        }
-      }
-      return args;
-    };
-    const args = getArgs(block).filter(
-      (arg, i, args) => args.indexOf(arg) === i
-    );
-    //console.log("args", args);
+    const inputs = getBlockInputs(block);
 
     let code = generator.valueToCode(block, "input", 0);
     if (!code) {
@@ -452,8 +458,8 @@ registerBlock(
     }
     //return [value, 0];
     return `const ${name} = registerCustomBlock('${name}', 
-  (${args.join(", ")}) => ${code},
-  [${args.map((arg) => `'${arg}'`).join(",")}]
+  (${inputs.join(", ")}) => ${code},
+  [${inputs.map((arg) => `'${arg}'`).join(",")}]
 )`;
   }
 );
@@ -461,6 +467,38 @@ registerBlock(
 getCategory(customCategoryName).contents.push({
   kind: "block",
   type: "register",
+});
+
+// defines custom "lambda" block
+registerBlock(
+  "lambda",
+  {
+    message0: `lambda %1`,
+    args0: [
+      {
+        type: "input_value",
+        name: "input",
+        check: "Number",
+      },
+    ],
+    colour: systemBlockColor,
+    output: "Number",
+    tooltip: "returns a lambda function",
+  },
+  function compile(block, generator) {
+    const inputs = getBlockInputs(block);
+    let code = generator.valueToCode(block, "input", 0);
+    if (!code) {
+      code = "n(0)";
+    }
+    //return [value, 0];
+    return [`(${inputs.join(", ")}) => ${code}`, 0];
+  }
+);
+
+getCategory("meta").contents.push({
+  kind: "block",
+  type: "lambda",
 });
 
 // init blockly workspace
