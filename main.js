@@ -270,7 +270,7 @@ function registerCustomBlock(name, fn, args) {
   const config = {
     ins: args.map((name) => ({ name })),
     tags: [customCategoryName],
-    description: "split the signal into n channels",
+    description: "a custom block, defined in the workspace using 'register'",
   };
   registerBlockFromKabelsalat(name, config);
 
