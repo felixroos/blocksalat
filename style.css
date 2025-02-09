@@ -74,4 +74,9 @@ input {
 .learn {
   color: white;
   padding: 10px 20px;
+  display: flex;
+  justify-content: center;
+  > div {
+    max-width: 800px;
+  }
 }

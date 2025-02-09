@@ -23,16 +23,32 @@
         </div>
       </div>
       <main class="learn">
-        <h1>What is blocksalat?</h1>
-        <blocksalat-editor
-          readOnly="1"
-          initial="(out (lpf (pulse 110 (range (sine .5) .2 .5)) .5))"
-        ></blocksalat-editor>
-
-        <blocksalat-editor
-          readOnly="1"
-          initial="(out (lpf (saw 55) .5))"
-        ></blocksalat-editor>
+        <div>
+          <h1>What is blocksalat?</h1>
+          <p>Here is a very simple example that generates a sine wave:</p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (sine 200))"
+          ></blocksalat-editor>
+          <p>Let's modulate the amplitude using mul:</p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (mul (sine 200) (range (sine 4) .4 1)))"
+          ></blocksalat-editor>
+          <p>Let's modulate the frequency instead:</p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (sine (range (sine 4) 210 230)))"
+          ></blocksalat-editor>
+          <p>
+            A lonely sine wave is pretty thin, let's add some oomph with a
+            sawtooth wave and a low pass filter:
+          </p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (lpf (saw 55) (range (sine 1) .4 .8)))"
+          ></blocksalat-editor>
+        </div>
       </main>
     </div>
   </body>

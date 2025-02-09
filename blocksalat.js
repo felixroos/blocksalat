@@ -608,7 +608,7 @@ export class Blocksalat {
     let parseNode = (node) => {
       // console.log("parse", node);
       if (typeof node === "undefined") {
-        return { shadow: { type: "n", fields: { NUM: 0 } } };
+        node = { type: "plain", value: 0 };
       }
       if (node.type === "plain") {
         return { shadow: { type: "n", fields: { NUM: Number(node.value) } } };
@@ -627,6 +627,9 @@ export class Blocksalat {
       type = type.value;
       // console.log("type", type, "args", args, this);
       const def = this.blockRegistry.get(type);
+      if (!def) {
+        throw new Error(`could not find definition for type "${type}"`);
+      }
       const validArgs = def.args0.filter((arg) => arg.type !== "input_dummy");
       // console.log("args", type, validArgs);
       const inputs = Object.fromEntries(
@@ -641,6 +644,16 @@ export class Blocksalat {
 
     this.lisp = this.lisp || new LispParser();
     const ast = this.lisp.parse(lisp);
+    /* if (ast.type !== "list" || ast.children[0].value !== "out") {
+      throw new Error(`expected outermost element to be of type "out"`);
+    }
+    if (ast.children[2] === undefined) {
+      ast.children[2] = {
+        type: "list",
+        children: [{ type: "plain", value: "stereo" }],
+      };
+    } */
+    //console.log("ast", ast);
     const { block } = parseNode(ast);
     return {
       blocks: {
