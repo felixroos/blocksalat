@@ -714,11 +714,11 @@ class BlocksalatElement extends HTMLElement {
 
   constructor() {
     super();
+    const initial = this.getAttribute("initial"); // is this safe to do here always?
     this.insertAdjacentHTML(
       "beforeend",
-      `<div class="editor"><div class="clickhint">click to play</div></div>`
+      `<div class="editor-wrapper"><div class="editor"><div class="clickhint">click to play</div></div><pre>${initial}</pre></div>`
     );
-    const initial = this.getAttribute("initial"); // is this safe to do here always?
     const readOnly = this.getAttribute("readOnly"); // is this safe to do here always?
     const blocksalat = new Blocksalat(this.querySelector(".editor"), {
       readOnly,
