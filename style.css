@@ -1,13 +1,15 @@
 body {
   margin: 0;
   padding: 0;
-  background: #333;
+  background: #222;
   font-family: monospace;
 }
 #container {
   height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
 #header {
   display: flex;
@@ -16,8 +18,13 @@ body {
   font-size: 1.2em;
   color: white;
   padding: 4px;
+  width: 100%;
   a {
     color: white;
+  }
+  &.small {
+    padding: 4px 0px;
+    max-width: 800px;
   }
 }
 #editor,
@@ -80,6 +87,7 @@ input {
   ring: none;
 }
 .learn {
+  background: #333;
   color: white;
   padding: 10px 20px;
   display: flex;
