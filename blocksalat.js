@@ -1,472 +1,488 @@
 import * as Blockly from "blockly/core";
 import "blockly/blocks";
 import * as locale from "blockly/msg/en";
-import { SalatRepl, nodeRegistry, register } from "@kabelsalat/web";
+import { SalatRepl, nodeRegistry, register, n } from "@kabelsalat/web";
 import "./plugins/toolbox-search/toolbox_search.ts";
 import DarkTheme from "@blockly/theme-dark";
 // import { FieldSlider } from "@blockly/field-slider";
 
-// define custom code generator for kabelsalat
-export const kabelsalatGenerator = new Blockly.Generator("kabelsalat");
-
-Blockly.ContextMenuItems.registerCommentOptions();
-Blockly.setLocale(locale);
-/* DarkTheme.fontStyle = {
-  family: "monospace",
-  //weight: "bold",
-  size: 10,
-}; */
-
-// get the names of all nodes from the kabelsalat nodeRegistry
-// filter out names that are either handled in a special way (out, n) or ones that don't work with blockly
-const allNodes = Array.from(nodeRegistry.entries())
-  .filter(
-    ([name, config]) =>
-      ![
-        "out",
-        "n",
-        "register",
-        "module",
-        "mouseX",
-        "mouseY",
-        "seq",
-        "split", // has fn input
-        "apply", // has fn input
-        "bytebeat", // has fn input
-        "floatbeat", // has fn input
-        "map", // has fn input
-        "raw", // has fn input
-        "select", // has fn input
-      ].includes(name) &&
-      !config.internal &&
-      config.tags /* &&
-      !config.tags.includes("meta") */
-  )
-  .sort(([a], [b]) => a.localeCompare(b));
-
-// change tags of clockdiv node (it's the only node with category "clock" -> tbd fix in kabelsalat)
-allNodes.find(([name]) => name === "clockdiv")[1].tags = ["trigger"]; // change
-
-// helper to create n inputs
-let nInputs = (n) =>
-  Array.from({ length: n }, (_, i) => ({ name: `in${i + 1}` }));
-
-// here, we create different variants for nodes with dynamic arguments
-// theoretically, dynamic inputs are possible with custom nodes in blockly
-// but for now, let's create different variants for the same node
-
-// create different poly node variants
-[2, 4, 8, 16].forEach((n) => {
-  allNodes.push([
-    "poly" + n,
-    {
-      ins: nInputs(n),
-      tags: ["multi-channel"],
-      description: `split the signal into ${n} channels (you don't have to use all)`,
-    },
-  ]);
-});
-
-// create different seq node variants
-[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].forEach((n) => {
-  allNodes.push([
-    "seq" + n,
-    {
-      ins: [{ name: `trigger` }, ...nInputs(n)],
-      tags: ["sequencer"],
-      description: `cycles through ${n} steps. each time the trigger goes high, the next step goes to the output.`,
-    },
-  ]);
-});
-
-// define src node manually, as its not in the registry
-allNodes.push([
-  "src",
-  {
-    ins: [{ name: "channel" }],
-    tags: ["meta"],
-    description: `routes the given out channel back to create feedback`,
-  },
-]);
-// define stereo node that can be used as a shadow node for out.channel
-// see below for special if branch, ( search "stereo" )
-allNodes.push([
-  "stereo",
-  {
-    ins: [],
-    tags: ["meta"],
-    description: `splits to stereo. short for poly2(0,1)`,
-  },
-]);
-
-// get list of all unique tags from all nodes
-const allTags = allNodes
-  .map(([_, config]) => config.tags)
-  .flat()
-  .filter((el, i, a) => a.indexOf(el) === i)
-  .filter(
-    (
-      tag // filter out some tags that are too redundant
-    ) => tag && !["distortion", "regular", "limiter", "external"].includes(tag)
-  )
-  .sort((a, b) => a.localeCompare(b));
-
-// custom = register / input nodes + nodes created with them
-const customCategoryName = "custom 🧪";
-allTags.push(customCategoryName);
-// create a block category for each tag
-const categories = allTags.map((name, i) => ({
-  kind: "category",
-  name: name,
-  colour: Math.round(((i + 1) / allTags.length) * 360),
-  contents: [],
-}));
-
-const getCategory = (name) => categories.find((cat) => cat.name === name);
-const getCategoryIndex = (name) =>
-  categories.findIndex((cat) => cat.name === name);
-const getCategoryColor = (name) =>
-  Math.round(((getCategoryIndex(name) + 1) / allTags.length) * 360);
-
-// helper to register a new blockly block
-function registerBlock(name, json, compile) {
-  Blockly.Blocks[name] = {
-    init: function () {
-      this.jsonInit(json);
-    },
-  };
-  kabelsalatGenerator.forBlock[name] = compile;
-}
-
-function registerBlockFromKabelsalat(name, config) {
-  //console.log("register", name, config);
-  let inputs = config.ins || [];
-  // fix default inputs for arithmetic (they are dynamic in kabelsalat)
-  // tbd maybe also add variants for these, like add2 add3 ?
-  // might be too much, we can also do add(a, add(b,c)) instead of add(a,b,c)
-  // alternatively, we could do addpoly(poly(a,b,c)) = add(a,b,c)
-  if (["mul", "div"].includes(name)) {
-    inputs = [
-      { name: "in0", default: 1 },
-      { name: "in1", default: 1 },
-    ];
-  } else if (["add", "sub"].includes(name)) {
-    inputs = [
-      { name: "in0", default: 0 },
-      { name: "in1", default: 0 },
-    ];
-  }
-
-  let args = inputs.map((input) => ({
-    type: "input_value",
-    name: input.name,
-    check: "Number",
-  }));
-  const labels = [...inputs.map((input) => input.name)];
-
-  // if the first input is not "in", we can use the node name as label
-  //const skipFirstLabel = ["in", "input"].includes(inputs[0]?.name);
-  const skipFirstLabel = false; // always show, makes layout a bit calmer
-  if (skipFirstLabel) {
-    labels[0] = name;
-  } else {
-    args.unshift({
-      type: "input_dummy",
-    });
-    labels.unshift(name);
-  }
-
-  if (!config.tags) {
-    console.warn("no tags", name);
-  }
-
-  // add block definition
-  registerBlock(
-    name,
-    {
-      message0: labels.map((label, i) => `${label} %${i + 1}`).join(" "),
-      args0: args,
-      output: "Number",
-      colour: getCategoryColor(config.tags[0]),
-      tooltip: `${config.description}\n${inputs
-        .map(
-          (input) =>
-            `${input.name}${input.description ? ": " + input.description : ""}`
-        )
-        .join("\n")}`,
-      // helpUrl: "https://kabel.salat.dev/reference/",
-    },
-    function compile(block, generator) {
-      const args = block.inputList.reduce((acc, input, i) => {
-        if (input.type === Blockly.INPUT_VALUE) {
-          const inputCode = generator.valueToCode(block, input.name, 0);
-          acc.push(inputCode || inputs[i]?.default || 0);
-        } else if (input.type !== 5) {
-          // 5 = dummy
-          console.warn(`olala.. unexpected input value ${input.type}`);
-        }
-        return acc;
-      }, []);
-      // rename polyN to poly
-      if (name.startsWith("poly")) {
-        name = "poly";
-      }
-      // rename seqN to seq
-      if (name.startsWith("seq")) {
-        name = "seq";
-      }
-      // each block compiles to a simple function call
-      let code = `${name}(${args.join(", ")})`;
-      // stereo node is just a fake variable
-      if (name === "stereo") {
-        code = "poly(0,1)";
-      }
-      return [code, 0];
+export class Blocksalat {
+  inited = false;
+  // this is only called once for the document lifetime
+  static init() {
+    if (this.inited) {
+      return;
     }
-  );
+    this.inited = true;
 
-  // add block to toolbox, into every category that matches the node tags
-  categories
-    .filter((category) => (config.tags || []).includes(category.name))
-    .forEach((category) => {
-      const config = {
-        kind: "block",
-        type: name,
-        // add a shadow "n" block for each input, using the input's default (fallback to 0)
-        inputs: Object.fromEntries(
-          inputs.map((input) => [
-            input.name,
-            {
-              // https://developers.google.com/blockly/guides/configure/web/toolbox#shadow_blocks
-              shadow: {
-                type: "n",
-                fields: {
-                  NUM: input.default || 0,
-                },
-              },
-            },
-          ])
-        ),
-      };
-      category.contents.push(config);
+    // define custom code generator for kabelsalat
+    this.kabelsalatGenerator = new Blockly.Generator("kabelsalat");
+
+    Blockly.ContextMenuItems.registerCommentOptions();
+    Blockly.setLocale(locale);
+    /* DarkTheme.fontStyle = {
+      family: "monospace",
+      //weight: "bold",
+      size: 10,
+    }; */
+    // get the names of all nodes from the kabelsalat nodeRegistry
+    // filter out names that are either handled in a special way (out, n) or ones that don't work with blockly
+    const allNodes = Array.from(nodeRegistry.entries())
+      .filter(
+        ([name, config]) =>
+          ![
+            "out",
+            "n",
+            "register",
+            "module",
+            "mouseX",
+            "mouseY",
+            "seq",
+            "split", // has fn input
+            "apply", // has fn input
+            "bytebeat", // has fn input
+            "floatbeat", // has fn input
+            "map", // has fn input
+            "raw", // has fn input
+            "select", // has fn input
+          ].includes(name) &&
+          !config.internal &&
+          config.tags /* &&
+      !config.tags.includes("meta") */
+      )
+      .sort(([a], [b]) => a.localeCompare(b));
+
+    // change tags of clockdiv node (it's the only node with category "clock" -> tbd fix in kabelsalat)
+    allNodes.find(([name]) => name === "clockdiv")[1].tags = ["trigger"]; // change
+
+    // helper to create n inputs
+    let nInputs = (n) =>
+      Array.from({ length: n }, (_, i) => ({ name: `in${i + 1}` }));
+
+    // here, we create different variants for nodes with dynamic arguments
+    // theoretically, dynamic inputs are possible with custom nodes in blockly
+    // but for now, let's create different variants for the same node
+
+    // create different poly node variants
+    [2, 4, 8, 16].forEach((n) => {
+      allNodes.push([
+        "poly" + n,
+        {
+          ins: nInputs(n),
+          tags: ["multi-channel"],
+          description: `split the signal into ${n} channels (you don't have to use all)`,
+        },
+      ]);
     });
-}
 
-window.registerBlockFromKabelsalat = registerBlockFromKabelsalat;
+    // create different seq node variants
+    [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].forEach((n) => {
+      allNodes.push([
+        "seq" + n,
+        {
+          ins: [{ name: `trigger` }, ...nInputs(n)],
+          tags: ["sequencer"],
+          description: `cycles through ${n} steps. each time the trigger goes high, the next step goes to the output.`,
+        },
+      ]);
+    });
 
-// define all nodes
-allNodes.forEach(([name, config]) => registerBlockFromKabelsalat(name, config));
-const systemBlockColor = "#333";
-
-// defines custom n block
-registerBlock(
-  "n",
-  {
-    message0: `n %1`,
-    args0: [
+    // define src node manually, as its not in the registry
+    allNodes.push([
+      "src",
       {
-        type: "field_input",
-        name: "NUM",
-        check: "Number",
+        ins: [{ name: "channel" }],
+        tags: ["meta"],
+        description: `routes the given out channel back to create feedback`,
       },
-      /* {
+    ]);
+    // define stereo node that can be used as a shadow node for out.channel
+    // see below for special if branch, ( search "stereo" )
+    allNodes.push([
+      "stereo",
+      {
+        ins: [],
+        tags: ["meta"],
+        description: `splits to stereo. short for poly2(0,1)`,
+      },
+    ]);
+
+    // get list of all unique tags from all nodes
+    const allTags = allNodes
+      .map(([_, config]) => config.tags)
+      .flat()
+      .filter((el, i, a) => a.indexOf(el) === i)
+      .filter(
+        (
+          tag // filter out some tags that are too redundant
+        ) =>
+          tag && !["distortion", "regular", "limiter", "external"].includes(tag)
+      )
+      .sort((a, b) => a.localeCompare(b));
+
+    // custom = register / input nodes + nodes created with them
+    const customCategoryName = "custom 🧪";
+    allTags.push(customCategoryName);
+    // create a block category for each tag
+    const categories = allTags.map((name, i) => ({
+      kind: "category",
+      name: name,
+      colour: Math.round(((i + 1) / allTags.length) * 360),
+      contents: [],
+    }));
+
+    const getCategory = (name) => categories.find((cat) => cat.name === name);
+    const getCategoryIndex = (name) =>
+      categories.findIndex((cat) => cat.name === name);
+    const getCategoryColor = (name) =>
+      Math.round(((getCategoryIndex(name) + 1) / allTags.length) * 360);
+
+    // helper to register a new blockly block
+    function registerBlock(name, json, compile) {
+      Blockly.Blocks[name] = {
+        init: function () {
+          this.jsonInit(json);
+        },
+      };
+      Blocksalat.kabelsalatGenerator.forBlock[name] = compile;
+    }
+
+    function registerBlockFromKabelsalat(name, config) {
+      //console.log("register", name, config);
+      let inputs = config.ins || [];
+      // fix default inputs for arithmetic (they are dynamic in kabelsalat)
+      // tbd maybe also add variants for these, like add2 add3 ?
+      // might be too much, we can also do add(a, add(b,c)) instead of add(a,b,c)
+      // alternatively, we could do addpoly(poly(a,b,c)) = add(a,b,c)
+      if (["mul", "div"].includes(name)) {
+        inputs = [
+          { name: "in0", default: 1 },
+          { name: "in1", default: 1 },
+        ];
+      } else if (["add", "sub"].includes(name)) {
+        inputs = [
+          { name: "in0", default: 0 },
+          { name: "in1", default: 0 },
+        ];
+      }
+
+      let args = inputs.map((input) => ({
+        type: "input_value",
+        name: input.name,
+        check: "Number",
+      }));
+      const labels = [...inputs.map((input) => input.name)];
+
+      // if the first input is not "in", we can use the node name as label
+      //const skipFirstLabel = ["in", "input"].includes(inputs[0]?.name);
+      const skipFirstLabel = false; // always show, makes layout a bit calmer
+      if (skipFirstLabel) {
+        labels[0] = name;
+      } else {
+        args.unshift({
+          type: "input_dummy",
+        });
+        labels.unshift(name);
+      }
+
+      if (!config.tags) {
+        console.warn("no tags", name);
+      }
+
+      // add block definition
+      registerBlock(
+        name,
+        {
+          message0: labels.map((label, i) => `${label} %${i + 1}`).join(" "),
+          args0: args,
+          output: "Number",
+          colour: getCategoryColor(config.tags[0]),
+          tooltip: `${config.description}\n${inputs
+            .map(
+              (input) =>
+                `${input.name}${
+                  input.description ? ": " + input.description : ""
+                }`
+            )
+            .join("\n")}`,
+          // helpUrl: "https://kabel.salat.dev/reference/",
+        },
+        function compile(block, generator) {
+          const args = block.inputList.reduce((acc, input, i) => {
+            if (input.type === Blockly.INPUT_VALUE) {
+              const inputCode = generator.valueToCode(block, input.name, 0);
+              acc.push(inputCode || inputs[i]?.default || 0);
+            } else if (input.type !== 5) {
+              // 5 = dummy
+              console.warn(`olala.. unexpected input value ${input.type}`);
+            }
+            return acc;
+          }, []);
+          // rename polyN to poly
+          if (name.startsWith("poly")) {
+            name = "poly";
+          }
+          // rename seqN to seq
+          if (name.startsWith("seq")) {
+            name = "seq";
+          }
+          // each block compiles to a simple function call
+          let code = `${name}(${args.join(", ")})`;
+          // stereo node is just a fake variable
+          if (name === "stereo") {
+            code = "poly(0,1)";
+          }
+          return [code, 0];
+        }
+      );
+
+      // add block to toolbox, into every category that matches the node tags
+      categories
+        .filter((category) => (config.tags || []).includes(category.name))
+        .forEach((category) => {
+          const config = {
+            kind: "block",
+            type: name,
+            // add a shadow "n" block for each input, using the input's default (fallback to 0)
+            inputs: Object.fromEntries(
+              inputs.map((input) => [
+                input.name,
+                {
+                  // https://developers.google.com/blockly/guides/configure/web/toolbox#shadow_blocks
+                  shadow: {
+                    type: "n",
+                    fields: {
+                      NUM: input.default || 0,
+                    },
+                  },
+                },
+              ])
+            ),
+          };
+          category.contents.push(config);
+        });
+    }
+
+    window.registerBlockFromKabelsalat = registerBlockFromKabelsalat;
+
+    // define all nodes
+    allNodes.forEach(([name, config]) =>
+      registerBlockFromKabelsalat(name, config)
+    );
+    const systemBlockColor = "#555";
+
+    // defines custom n block
+    registerBlock(
+      "n",
+      {
+        message0: `n %1`,
+        args0: [
+          {
+            type: "field_input",
+            name: "NUM",
+            check: "Number",
+          },
+          /* {
       type: "field_slider",
       name: "NUM",
       value: 0,
     }, */
-    ],
-    output: "Number",
-    colour: systemBlockColor,
-    tooltip: "a constant number",
-  },
-  function compile(block, generator) {
-    const value = block.getFieldValue("NUM");
-    //return [value, 0];
-    return [`n(${value})`, 0]; // n needed for out, which is chained (atm)
-  }
-);
-
-getCategory("math").contents.push({ kind: "block", type: "n" });
-
-// define custom out block
-registerBlock(
-  "out",
-  {
-    message0: `out %1 channel %2`,
-    tooltip:
-      "output to speakers. only channels 0 and 1 will go to the speakers. can be used together with src to create feedback!",
-    args0: [
-      {
-        type: "input_value",
-        name: "input",
-        check: "Number",
+        ],
+        output: "Number",
+        colour: systemBlockColor,
+        tooltip: "a constant number",
       },
-      {
-        type: "input_value",
-        name: "channel",
-        check: "Number",
-      },
-    ],
-    colour: systemBlockColor,
-  },
-  function compile(block, generator) {
-    const inputCode = generator.valueToCode(block, "input", 0);
-    if (!inputCode) {
-      return "n(0).out()";
-    }
-    const channelCode = generator.valueToCode(block, "channel", 0);
-    return `${inputCode}.out(${channelCode})`;
-  }
-);
+      function compile(block, generator) {
+        const value = block.getFieldValue("NUM");
+        return [value, 0];
+      }
+    );
 
-getCategory("meta").contents.push({
-  kind: "block",
-  type: "out",
-  inputs: {
-    input: {
-      shadow: {
-        type: "n",
-        fields: {
-          NUM: 0,
+    getCategory("math").contents.push({ kind: "block", type: "n" });
+
+    // define custom out block
+    window.out = (input = 0) => n(input).out(); // patch: create standalone "out" function
+    registerBlock(
+      "out",
+      {
+        message0: `out %1 channel %2`,
+        tooltip:
+          "output to speakers. only channels 0 and 1 will go to the speakers. can be used together with src to create feedback!",
+        args0: [
+          {
+            type: "input_value",
+            name: "input",
+            check: "Number",
+          },
+          {
+            type: "input_value",
+            name: "channel",
+            check: "Number",
+          },
+        ],
+        colour: systemBlockColor,
+      },
+      function compile(block, generator) {
+        let inputCode = generator.valueToCode(block, "input", 0);
+        const channelCode = generator.valueToCode(block, "channel", 0);
+        return `out(${inputCode}, ${channelCode})`;
+      }
+    );
+
+    getCategory("meta").contents.push({
+      kind: "block",
+      type: "out",
+      inputs: {
+        input: {
+          shadow: {
+            type: "n",
+            fields: {
+              NUM: 0,
+            },
+          },
+        },
+        channel: {
+          shadow: {
+            type: "stereo",
+          },
         },
       },
-    },
-    channel: {
-      shadow: {
-        type: "stereo",
-      },
-    },
-  },
-});
+    });
 
-// defines custom "input" block
-registerBlock(
-  "input",
-  {
-    message0: `input %1`,
-    args0: [
+    // defines custom "input" block
+    registerBlock(
+      "input",
       {
-        type: "field_input",
-        name: "name",
-        check: "String",
+        message0: `input %1`,
+        args0: [
+          {
+            type: "field_input",
+            name: "name",
+            check: "String",
+          },
+        ],
+        output: "Number",
+        colour: systemBlockColor,
+        tooltip: "defines a block input for a custom block",
       },
-    ],
-    output: "Number",
-    colour: systemBlockColor,
-    tooltip: "defines a block input for a custom block",
-  },
-  function compile(block) {
-    const name = block.getFieldValue("name");
-    return [name, 0];
-  }
-);
-
-getCategory(customCategoryName).contents.push({ kind: "block", type: "input" });
-
-function getBlockChildren(block, filterFn) {
-  // depth first search arg names (input blocks)
-  let getChildren = (block, args = []) => {
-    const children = block.getChildren();
-    if (filterFn(block)) {
-      args.push(block);
-    }
-    if (children.length) {
-      for (let child of children) {
-        getChildren(child, args);
+      function compile(block) {
+        const name = block.getFieldValue("name");
+        return [name, 0];
       }
-    }
-    return args;
-  };
-  return getChildren(block);
-}
-function getBlockInputs(block) {
-  return getBlockChildren(block, (child) => child.type === "input")
-    .map((block) => block.getFieldValue("name"))
-    .filter((arg, i, args) => args.indexOf(arg) === i);
-}
+    );
 
-// defines custom "register" block
-registerBlock(
-  "register",
-  {
-    message0: `register %1 as %2`,
-    args0: [
-      {
-        type: "field_input",
-        name: "name",
-        //check: "String",
-      },
-      {
-        type: "input_value",
-        name: "input",
-        check: "Number",
-      },
-    ],
-    colour: systemBlockColor,
-    tooltip: "defines a new block inside the workspace",
-  },
-  function compile(block, generator) {
-    const name = block.getFieldValue("name");
-    if (!name) {
-      return "";
-    }
-    const inputs = getBlockInputs(block);
+    getCategory(customCategoryName).contents.push({
+      kind: "block",
+      type: "input",
+    });
 
-    let code = generator.valueToCode(block, "input", 0);
-    if (!code) {
-      code = "n(0)";
+    function getBlockChildren(block, filterFn) {
+      // depth first search arg names (input blocks)
+      let getChildren = (block, args = []) => {
+        const children = block.getChildren();
+        if (filterFn(block)) {
+          args.push(block);
+        }
+        if (children.length) {
+          for (let child of children) {
+            getChildren(child, args);
+          }
+        }
+        return args;
+      };
+      return getChildren(block);
     }
-    //return [value, 0];
-    return `const ${name} = registerCustomBlock('${name}', 
+    function getBlockInputs(block) {
+      return getBlockChildren(block, (child) => child.type === "input")
+        .map((block) => block.getFieldValue("name"))
+        .filter((arg, i, args) => args.indexOf(arg) === i);
+    }
+
+    // defines custom "register" block
+    registerBlock(
+      "register",
+      {
+        message0: `register %1 as %2`,
+        args0: [
+          {
+            type: "field_input",
+            name: "name",
+            //check: "String",
+          },
+          {
+            type: "input_value",
+            name: "input",
+            check: "Number",
+          },
+        ],
+        colour: systemBlockColor,
+        tooltip: "defines a new block inside the workspace",
+      },
+      function compile(block, generator) {
+        const name = block.getFieldValue("name");
+        if (!name) {
+          return "";
+        }
+        const inputs = getBlockInputs(block);
+
+        let code = generator.valueToCode(block, "input", 0);
+        if (!code) {
+          code = "n(0)";
+        }
+        //return [value, 0];
+        return `const ${name} = registerCustomBlock('${name}', 
   (${inputs.join(", ")}) => ${code},
   [${inputs.map((arg) => `'${arg}'`).join(",")}]
 )`;
-  }
-);
+      }
+    );
 
-getCategory(customCategoryName).contents.push({
-  kind: "block",
-  type: "register",
-});
+    getCategory(customCategoryName).contents.push({
+      kind: "block",
+      type: "register",
+    });
 
-// defines custom "lambda" block
-registerBlock(
-  "lambda",
-  {
-    message0: `lambda %1`,
-    args0: [
+    // defines custom "lambda" block
+    registerBlock(
+      "lambda",
       {
-        type: "input_value",
-        name: "input",
-        check: "Number",
+        message0: `lambda %1`,
+        args0: [
+          {
+            type: "input_value",
+            name: "input",
+            check: "Number",
+          },
+        ],
+        colour: systemBlockColor,
+        output: "Number",
+        tooltip: "returns a lambda function",
       },
-    ],
-    colour: systemBlockColor,
-    output: "Number",
-    tooltip: "returns a lambda function",
-  },
-  function compile(block, generator) {
-    const inputs = getBlockInputs(block);
-    let code = generator.valueToCode(block, "input", 0);
-    if (!code) {
-      code = "n(0)";
-    }
-    //return [value, 0];
-    return [`(${inputs.join(", ")}) => ${code}`, 0];
+      function compile(block, generator) {
+        const inputs = getBlockInputs(block);
+        let code = generator.valueToCode(block, "input", 0);
+        if (!code) {
+          code = "n(0)";
+        }
+        //return [value, 0];
+        return [`(${inputs.join(", ")}) => ${code}`, 0];
+      }
+    );
+
+    getCategory("meta").contents.push({
+      kind: "block",
+      type: "lambda",
+    });
+    // static props
+    this.categories = categories;
+    this.customCategoryName = customCategoryName;
   }
-);
-
-getCategory("meta").contents.push({
-  kind: "block",
-  type: "lambda",
-});
-
-export class Blocksalat {
   // workspace, repl
   constructor(targetElement, config = {}) {
+    Blocksalat.init();
     this.config = config;
     // blockly toolbox definition
-    const contents = [...categories];
+    const contents = [...Blocksalat.categories];
     if (config.search) {
       contents.unshift({
         kind: "search",
@@ -510,7 +526,7 @@ export class Blocksalat {
   // runs each time something changes
   update() {
     // generate and run kabelsalat code
-    const code = kabelsalatGenerator.workspaceToCode(this.workspace);
+    const code = Blocksalat.kabelsalatGenerator.workspaceToCode(this.workspace);
     console.log("run:");
     console.log(code);
     window.registerCustomBlock = this.registerCustomBlock.bind(this);
@@ -558,7 +574,7 @@ export class Blocksalat {
           preflightWorkspace,
           this.workspace
         );
-        const preflightCode = kabelsalatGenerator.workspaceToCode(
+        const preflightCode = Blocksalat.kabelsalatGenerator.workspaceToCode(
           this.workspace
         );
         console.log("preflight:");
@@ -580,17 +596,17 @@ export class Blocksalat {
     //console.log("registerCustomBlock", name, args);
     const config = {
       ins: args.map((name) => ({ name })),
-      tags: [customCategoryName],
+      tags: [Blocksalat.customCategoryName],
       description: "a custom block, defined in the workspace using 'register'",
     };
-    registerBlockFromKabelsalat(name, config);
+    Blocksalat.registerBlockFromKabelsalat(name, config);
 
     const registered = register(name, fn);
 
     const customCategory = this.workspace
       .getToolbox()
       .getToolboxItems()
-      .find((cat) => cat.getName() === customCategoryName);
+      .find((cat) => cat.getName() === Blocksalat.customCategoryName);
     const contents = customCategory.getContents();
     if (!contents.find((def) => def.type === name)) {
       contents.push({ kind: "block", type: name });
