@@ -64,7 +64,7 @@ export class Blocksalat {
     // but for now, let's create different variants for the same node
 
     // create different poly node variants
-    [2, 4, 8, 16].forEach((n) => {
+    [2, 3, 4, 5, 8, 16].forEach((n) => {
       allNodes.push([
         "poly" + n,
         {
@@ -638,19 +638,35 @@ export class Blocksalat {
         );
       }
       type = type.value;
-      // console.log("type", type, "args", args, this);
+      // console.log("type", type, "args", args);
       const def = this.blockRegistry.get(type);
       if (!def) {
         throw new Error(`could not find definition for type "${type}"`);
       }
-      const validArgs = def.args0.filter((arg) => arg.type !== "input_dummy");
-      // console.log("args", type, validArgs);
+      // console.log("def", def);
       const inputs = Object.fromEntries(
-        validArgs.map((arg, i) => [arg.name, parseNode(args[i])])
+        def.args0
+          .filter((arg) => arg.type === "input_value")
+          .map((arg, i) => [arg.name, parseNode(args[i])])
       );
+      // console.log("inputs", type);
+      const fields = Object.fromEntries(
+        def.args0
+          .filter((arg) => arg.type === "field_input")
+          .map((arg, i) => {
+            if (args[i].type !== "plain") {
+              throw new Error(
+                `unexpected type "${args[i].type}" for argument of type "input_value".`
+              );
+            }
+            return [arg.name, args[i].value];
+          })
+      );
+      // console.log("fields", fields);
       let block = {
         type,
         inputs,
+        fields,
       };
       return { block };
     };
