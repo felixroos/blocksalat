@@ -463,21 +463,24 @@ getCategory("meta").contents.push({
 
 export class Blocksalat {
   // workspace, repl
-  constructor() {
+  constructor(targetElement, config = {}) {
+    this.config = config;
     // blockly toolbox definition
+    const contents = [...categories];
+    if (config.search) {
+      contents.unshift({
+        kind: "search",
+        name: "Search",
+        contents: [],
+        colour: "#222",
+      });
+    }
     const toolbox = {
       kind: "categoryToolbox",
-      contents: [
-        ...categories,
-        {
-          kind: "search",
-          name: "Search",
-          contents: [],
-        },
-      ],
+      contents,
     };
     // init blockly workspace
-    this.workspace = Blockly.inject(document.getElementById("blockly"), {
+    this.workspace = Blockly.inject(targetElement, {
       readOnly: false,
       theme: DarkTheme,
       trashcan: false,
@@ -512,9 +515,11 @@ export class Blocksalat {
     console.log(code);
     window.registerCustomBlock = this.registerCustomBlock.bind(this);
     this.repl.run(code);
-    // persist workspace state to url hash, using hashed json
-    const json = Blockly.serialization.workspaces.save(this.workspace);
-    window.location.hash = "#" + btoa(JSON.stringify(json));
+    if (this.config.onChange) {
+      // persist workspace state to url hash, using hashed json
+      const json = Blockly.serialization.workspaces.save(this.workspace);
+      this.config.onChange(json);
+    }
   }
   // should be called on a user click
   start() {
@@ -595,3 +600,43 @@ export class Blocksalat {
     return registered;
   }
 }
+
+class BlocksalatElement extends HTMLElement {
+  static observedAttributes = ["hash"];
+
+  constructor() {
+    super();
+    this.insertAdjacentHTML(
+      "beforeend",
+      `<div class="editor"><div class="clickhint">click to play</div></div>`
+    );
+    const blocksalat = new Blocksalat(this.querySelector(".editor"));
+    const hash = this.getAttribute("hash"); // is this safe to do here always?
+    blocksalat.loadHash(hash);
+    // first document click runs the patch, adds change listener + removes hint
+    const clickhint = this.querySelector(".clickhint");
+    clickhint.addEventListener("click", function init() {
+      blocksalat.start();
+      clickhint.removeEventListener("click", init);
+      clickhint.remove();
+    });
+  }
+
+  connectedCallback() {
+    // console.log("Custom element added to page.");
+  }
+  disconnectedCallback() {
+    // console.log("Custom element removed from page.");
+  }
+  adoptedCallback() {
+    // console.log("Custom element moved to new page.");
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    /* console.log(`Attribute ${name} has changed.`);
+    if (name === "hash") {
+      this.blocksalat.loadHash(newValue);
+    } */
+  }
+}
+
+customElements.define("blocksalat-editor", BlocksalatElement);

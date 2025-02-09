@@ -11,28 +11,39 @@
     <title>block.salat</title>
   </head>
   <body>
-    <div id="clickhint">click to play</div>
     <div id="container">
       <div id="header">
         <div>🧩 block.salat</div>
         <div>
+          <a href="/learn/">learn</a>
           <a href="https://github.com/felixroos/blocksalat" target="_blank"
             >source</a
           >
         </div>
       </div>
-      <div id="blockly"></div>
+      <div id="editor">
+        <div id="blockly"></div>
+        <div class="clickhint">click to play</div>
+      </div>
     </div>
     <script type="module">
       import { Blocksalat } from "./blocksalat.js";
 
-      const blocksalat = new Blocksalat();
+      const container = document.getElementById("blockly");
+      const blocksalat = new Blocksalat(container, {
+        search: true,
+        onChange: (json) => {
+          // update hash on change
+          window.location.hash = "#" + btoa(JSON.stringify(json));
+        },
+      });
 
       // first document click runs the patch, adds change listener + removes hint
-      window.addEventListener("click", function init() {
+      const clickhint = document.querySelector(".clickhint");
+      clickhint.addEventListener("click", function init() {
         blocksalat.start();
-        window.removeEventListener("click", init);
-        this.document.getElementById("clickhint").remove();
+        clickhint.removeEventListener("click", init);
+        clickhint.remove();
       });
 
       // get hash from url or use default one
