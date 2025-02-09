@@ -53,18 +53,18 @@ body {
 blocksalat-editor {
   display: block;
   position: relative;
-  margin-bottom: 30px;
+  /* margin-bottom: 50px; */
 }
 /* learn */
 .editor-wrapper {
   height: 100%;
   width: 100%;
+  width: 540px;
+  height: 320px;
   .editor {
     position: relative;
     height: 100%;
     width: 100%;
-    width: 320px;
-    height: 240px;
   }
   pre {
     font-family: monospace;
@@ -109,4 +109,8 @@ input {
     width: 64px;
     height: 64px;
   }
+}
+
+a {
+  color: white;
 }

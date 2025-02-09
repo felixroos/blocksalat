@@ -26,28 +26,125 @@
       <main class="learn">
         <div>
           <h1>What is blocksalat?</h1>
+          <p>
+            <strong>blocksalat</strong> is a browser based modular synthesizer
+            based on blocks. It lets you build synthesizer patches with blocks
+            that can be puzzled together. The synth engine is based on
+            <a href="https://kabel.salat.dev/" target="_blank">blocksalat</a>.
+          </p>
+          <h2>Hello World</h2>
           <p>Here is a very simple example that generates a sine wave:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (sine 200))"
+            initial="(out (sine 200) (stereo))"
           ></blocksalat-editor>
+          <p>Press "play" to start the sound!</p>
+          <h2>Amplitude Modulation</h2>
           <p>Let's modulate the amplitude using mul:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (mul (sine 200) (range (sine 4) .4 1)))"
+            initial="(out (mul (sine 200) (range (sine 4) .4 1)) (stereo))"
           ></blocksalat-editor>
+          <h2>Frequency Modulation</h2>
           <p>Let's modulate the frequency instead:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (sine (range (sine 4) 210 230)))"
+            initial="(out (sine (range (sine 4) 210 230)) (stereo))"
           ></blocksalat-editor>
+          <h2>Subtractive Synthesis</h2>
           <p>
             A lonely sine wave is pretty thin, let's add some oomph with a
             sawtooth wave and a low pass filter:
           </p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (lpf (saw 55) (range (sine 1) .4 .8)))"
+            initial="(out (lpf (saw 55) (range (sine 1) .4 .8)) (stereo))"
+          ></blocksalat-editor>
+          <h2>Impulses & Envelopes</h2>
+          <p>We can apply a simple decay envelope with impulse and perc:</p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (mul (sine 220) (perc (impulse 4) .2)) (stereo))"
+          ></blocksalat-editor>
+          <p>We can also use ad to get an attack + decay phase:</p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (mul (sine 220) (ad (impulse 4) .08 .15)) (stereo))"
+          ></blocksalat-editor>
+          <h2>Sequences</h2>
+          <p>
+            The seq4 blocks allows us to cycle through 4 different values using
+            an impulse:
+          </p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (lpf (saw (seq4 (impulse 4) 55 110 220 330)) .5) (stereo))"
+          ></blocksalat-editor>
+          <!-- <h2>Reusing blocks</h2>
+          <p>
+            In the above example, we might want to use the impulse to control
+            the sequence and also an envelope:
+          </p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (mul (sine (seq4 (impulse 4) 110 220 330 440)) (ad (impulse 4) .01 .2)))"
+          ></blocksalat-editor> 
+          <p>Here we are creating the variable imp to use the impulse in 2 places. Another way to write the same is this:</p>
+        
+          <p>The apply method allows us to get a variable without breaking up our patch into multiple blocks</p>
+          -->
+          <h2>lag</h2>
+          <p>
+            lag acts as a so called "slew limiter", making the incoming signal
+            sluggish, preventing harsh clicks. It can also be used for glissando
+            effects:
+          </p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (lpf (saw (lag (seq4 (impulse 2) 55 110 220 330) .7)) .5) (stereo))"
+          ></blocksalat-editor>
+          <h2>Feedback Delay</h2>
+          <p>
+            Feedback is a core feature of blocksalat. You can plug a block back
+            to itself using a so called lambda block:
+          </p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (add (mul (lpf (saw (seq4 (impulse 2) 55 110 220 330)) .5) (ad (impulse 4) .01 .1)) (lambda (mul (delay (input x) .1) .8))) (stereo))"
+          ></blocksalat-editor>
+          <h2>Multichannel Expansion</h2>
+          <p>We can create multiple channels with the poly blocks:</p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (sine (poly2 200 201)) (stereo))"
+          ></blocksalat-editor>
+          <!-- If we want more channels, we have to mix them down:
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (sine (poly3 111 222 333)) (stereo))"
+          ></blocksalat-editor> -->
+          <p>
+            Look what happens when poly blocks are used in more than one place:
+          </p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (mul (sine (poly2 111 442)) (poly2 1 .25)) (stereo))"
+          ></blocksalat-editor>
+          <p>
+            Explanation: the channels are automatically mapped to each other.
+            The 111Hz sine wave gets multiplied with 1, and the 442Hz sine wave
+            gets multiplied with .25.
+          </p>
+          <h2>fold</h2>
+          <p>fold limits the signal in between [-1,1] by wavefolding:</p>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (fold (sine 55) (range (sine .5) 0.2 4)) (stereo))"
+          ></blocksalat-editor>
+          <h2>Distort</h2>
+          <blocksalat-editor
+            readOnly="1"
+            initial="(out (distort (lpf (saw (lag (seq5 (impulse 4) 55 0 55 66 77) .5)) (range(sine .3) .2 .8) .2) (range (sine .5) 0 1)) (stereo))"
           ></blocksalat-editor>
         </div>
       </main>

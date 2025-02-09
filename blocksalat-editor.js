@@ -8,8 +8,8 @@ class BlocksalatElement extends HTMLElement {
     const initial = this.getAttribute("initial"); // is this safe to do here always?
     this.insertAdjacentHTML(
       "beforeend",
-      `<div class="editor-wrapper"><div class="editor"><div class="playtoggle">play</div></div><pre>${initial}</pre></div>`
-    );
+      `<div class="editor-wrapper"><div class="editor"><div class="playtoggle">play</div></div></div>`
+    ); //<pre>${initial}</pre>
     const readOnly = this.getAttribute("readOnly"); // is this safe to do here always?
     const blocksalat = new Blocksalat(this.querySelector(".editor"), {
       readOnly,
