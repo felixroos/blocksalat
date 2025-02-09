@@ -15,7 +15,7 @@
       <div id="header">
         <div>🧩 block.salat</div>
         <div>
-          <!-- <a href="/learn/">learn</a> -->
+          <a href="/learn/">learn</a>
           <a href="https://github.com/felixroos/blocksalat" target="_blank"
             >source</a
           >
@@ -32,6 +32,7 @@
       const container = document.getElementById("blockly");
       const blocksalat = new Blocksalat(container, {
         search: true,
+        toolbox: true,
         onChange: (json) => {
           // update hash on change
           window.location.hash = "#" + btoa(JSON.stringify(json));

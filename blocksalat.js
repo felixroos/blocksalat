@@ -301,7 +301,7 @@ export class Blocksalat {
     getCategory("math").contents.push({ kind: "block", type: "n" });
 
     // define custom out block
-    window.out = (input = 0) => n(input).out(); // patch: create standalone "out" function
+    window.out = (input, channel) => n(input).out(channel); // patch: create standalone "out" function
     registerBlock(
       "out",
       {
@@ -325,7 +325,7 @@ export class Blocksalat {
       function compile(block, generator) {
         let inputCode = generator.valueToCode(block, "input", 0);
         const channelCode = generator.valueToCode(block, "channel", 0);
-        return `out(${inputCode}, ${channelCode})`;
+        return `out(${inputCode || "0"}, ${channelCode || "[0,1]"})`;
       }
     );
 
@@ -482,22 +482,25 @@ export class Blocksalat {
     Blocksalat.init();
     this.config = config;
     // blockly toolbox definition
-    const contents = [...Blocksalat.categories];
-    if (config.search) {
-      contents.unshift({
-        kind: "search",
-        name: "Search",
-        contents: [],
-        colour: "#222",
-      });
+    let toolbox;
+    if (config.toolbox) {
+      const contents = [...Blocksalat.categories];
+      if (config.search) {
+        contents.unshift({
+          kind: "search",
+          name: "Search",
+          contents: [],
+          colour: "#222",
+        });
+      }
+      toolbox = {
+        kind: "categoryToolbox",
+        contents,
+      };
     }
-    const toolbox = {
-      kind: "categoryToolbox",
-      contents,
-    };
     // init blockly workspace
     this.workspace = Blockly.inject(targetElement, {
-      readOnly: false,
+      readOnly: config.readOnly ?? false,
       theme: DarkTheme,
       trashcan: false,
       sound: false,
@@ -618,7 +621,7 @@ export class Blocksalat {
 }
 
 class BlocksalatElement extends HTMLElement {
-  static observedAttributes = ["hash"];
+  static observedAttributes = ["hash", "readOnly"];
 
   constructor() {
     super();
@@ -626,8 +629,11 @@ class BlocksalatElement extends HTMLElement {
       "beforeend",
       `<div class="editor"><div class="clickhint">click to play</div></div>`
     );
-    const blocksalat = new Blocksalat(this.querySelector(".editor"));
     const hash = this.getAttribute("hash"); // is this safe to do here always?
+    const readOnly = this.getAttribute("readOnly"); // is this safe to do here always?
+    const blocksalat = new Blocksalat(this.querySelector(".editor"), {
+      readOnly,
+    });
     blocksalat.loadHash(hash);
     // first document click runs the patch, adds change listener + removes hint
     const clickhint = this.querySelector(".clickhint");
