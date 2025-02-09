@@ -616,7 +616,9 @@ export class Blocksalat {
     // to run the code, we need to generate it, which we can only do if the workspace is loaded...
     // deadlock 3000
     Blockly.serialization.workspaces.load(json, this.workspace); // load to blockly
-    this.workspace.zoomToFit();
+    if (this.workspace.options.readOnly) {
+      this.workspace.zoomToFit();
+    }
   }
   static lisp2blocks(lisp) {
     let parseNode = (node) => {
