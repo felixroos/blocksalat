@@ -129,19 +129,6 @@ const getCategoryIndex = (name) =>
 const getCategoryColor = (name) =>
   Math.round(((getCategoryIndex(name) + 1) / allTags.length) * 360);
 
-// blockly toolbox definition
-const toolbox = {
-  kind: "categoryToolbox",
-  contents: [
-    ...categories,
-    {
-      kind: "search",
-      name: "Search",
-      contents: [],
-    },
-  ],
-};
-
 // helper to register a new blockly block
 function registerBlock(name, json, compile) {
   Blockly.Blocks[name] = {
@@ -267,32 +254,6 @@ function registerBlockFromKabelsalat(name, config) {
 }
 
 window.registerBlockFromKabelsalat = registerBlockFromKabelsalat;
-
-// this function is called from the "register" block
-function registerCustomBlock(name, fn, args) {
-  //console.log("registerCustomBlock", name, args);
-  const config = {
-    ins: args.map((name) => ({ name })),
-    tags: [customCategoryName],
-    description: "a custom block, defined in the workspace using 'register'",
-  };
-  registerBlockFromKabelsalat(name, config);
-
-  const registered = register(name, fn);
-
-  const customCategory = workspace
-    .getToolbox()
-    .getToolboxItems()
-    .find((cat) => cat.getName() === customCategoryName);
-  const contents = customCategory.getContents();
-  if (!contents.find((def) => def.type === name)) {
-    contents.push({ kind: "block", type: name });
-    customCategory.updateFlyoutContents(contents);
-  }
-
-  return registered;
-}
-window.registerCustomBlock = registerCustomBlock;
 
 // define all nodes
 allNodes.forEach(([name, config]) => registerBlockFromKabelsalat(name, config));
@@ -501,63 +462,147 @@ getCategory("meta").contents.push({
   type: "lambda",
 });
 
-// init blockly workspace
-const workspace = Blockly.inject(document.getElementById("blockly"), {
-  readOnly: false,
-  theme: DarkTheme,
-  trashcan: false,
-  sound: false,
-  //rtl: true,
-  move: {
-    scrollbars: true,
-    drag: true,
-    wheel: true,
-  },
-  zoom: {
-    controls: true,
-    wheel: true,
-    startScale: 1.0,
-    maxScale: 3,
-    minScale: 0.6,
-    scaleSpeed: 1.2,
-    pinch: true,
-  },
-  toolbox,
-});
+class Blocksalat {
+  // workspace, repl
+  constructor() {
+    // blockly toolbox definition
+    const toolbox = {
+      kind: "categoryToolbox",
+      contents: [
+        ...categories,
+        {
+          kind: "search",
+          name: "Search",
+          contents: [],
+        },
+      ],
+    };
+    // init blockly workspace
+    this.workspace = Blockly.inject(document.getElementById("blockly"), {
+      readOnly: false,
+      theme: DarkTheme,
+      trashcan: false,
+      sound: false,
+      //rtl: true,
+      move: {
+        scrollbars: true,
+        drag: true,
+        wheel: true,
+      },
+      zoom: {
+        controls: true,
+        wheel: true,
+        startScale: 1.0,
+        maxScale: 3,
+        minScale: 0.6,
+        scaleSpeed: 1.2,
+        pinch: true,
+      },
+      toolbox,
+    });
 
-// init kabelsalat repl
-const repl = new SalatRepl();
+    // init kabelsalat repl
+    this.repl = new SalatRepl();
+  }
 
-// runs each time something changes
-function update() {
-  // generate and run kabelsalat code
-  const code = kabelsalatGenerator.workspaceToCode(workspace);
-  console.log("run:");
-  console.log(code);
-  repl.run(code);
-  // persist workspace state to url hash, using hashed json
-  const json = Blockly.serialization.workspaces.save(workspace);
-  window.location.hash = "#" + btoa(JSON.stringify(json));
+  // runs each time something changes
+  update() {
+    // generate and run kabelsalat code
+    const code = kabelsalatGenerator.workspaceToCode(this.workspace);
+    console.log("run:");
+    console.log(code);
+    window.registerCustomBlock = this.registerCustomBlock.bind(this);
+    this.repl.run(code);
+    // persist workspace state to url hash, using hashed json
+    const json = Blockly.serialization.workspaces.save(this.workspace);
+    window.location.hash = "#" + btoa(JSON.stringify(json));
+  }
+  // should be called on a user click
+  start() {
+    this.update();
+    // events that should trigger an update
+    const supportedEvents = new Set([
+      Blockly.Events.BLOCK_CHANGE,
+      Blockly.Events.BLOCK_CREATE,
+      Blockly.Events.BLOCK_DELETE,
+      Blockly.Events.BLOCK_MOVE,
+      Blockly.Events.BLOCK_FIELD_INTERMEDIATE_CHANGE,
+    ]);
+    this.workspace.addChangeListener((event) => {
+      //if (workspace.isDragging()) return;
+      if (!supportedEvents.has(event.type)) return;
+      this.update();
+    });
+  }
+  loadHash(hash) {
+    try {
+      const json = JSON.parse(atob(hash)); // convert hash to oject
+      console.log("load", json);
+      // before loading the full json, we need to check if it contains "register" nodes
+      // if yes, we need to run a "preflight" pass to make sure custom blocks are defined
+      const registerBlocks = json.blocks.blocks.filter(
+        (block) => block.type === "register"
+      );
+      if (registerBlocks.length) {
+        const preflightWorkspace = {
+          blocks: {
+            languageVersion: 0,
+            blocks: registerBlocks,
+          },
+        };
+        Blockly.serialization.workspaces.load(
+          preflightWorkspace,
+          this.workspace
+        );
+        const preflightCode = kabelsalatGenerator.workspaceToCode(
+          this.workspace
+        );
+        console.log("preflight:");
+        console.log(preflightCode);
+        Function(preflightCode)();
+      }
+
+      // problem: any custom nodes in this json won't be registered, because the code didn't run yet..
+      // to run the code, we need to generate it, which we can only do if the workspace is loaded...
+      // deadlock 3000
+      Blockly.serialization.workspaces.load(json, this.workspace); // load to blockly
+    } catch (err) {
+      console.error("could not init code", err);
+    }
+  }
+
+  // this function is called from the "register" block
+  registerCustomBlock(name, fn, args) {
+    //console.log("registerCustomBlock", name, args);
+    const config = {
+      ins: args.map((name) => ({ name })),
+      tags: [customCategoryName],
+      description: "a custom block, defined in the workspace using 'register'",
+    };
+    registerBlockFromKabelsalat(name, config);
+
+    const registered = register(name, fn);
+
+    const customCategory = this.workspace
+      .getToolbox()
+      .getToolboxItems()
+      .find((cat) => cat.getName() === customCategoryName);
+    const contents = customCategory.getContents();
+    if (!contents.find((def) => def.type === name)) {
+      contents.push({ kind: "block", type: name });
+      customCategory.updateFlyoutContents(contents);
+    }
+
+    return registered;
+  }
 }
 
-// events that should trigger an update
-const supportedEvents = new Set([
-  Blockly.Events.BLOCK_CHANGE,
-  Blockly.Events.BLOCK_CREATE,
-  Blockly.Events.BLOCK_DELETE,
-  Blockly.Events.BLOCK_MOVE,
-  Blockly.Events.BLOCK_FIELD_INTERMEDIATE_CHANGE,
-]);
+const blocksalat = new Blocksalat();
 
 // first document click runs the patch, adds change listener + removes hint
 window.addEventListener("click", function init() {
-  update();
+  blocksalat.start();
   window.removeEventListener("click", init);
-  workspace.addChangeListener((event) => {
-    //if (workspace.isDragging()) return;
-    if (!supportedEvents.has(event.type)) return;
-    update();
-  });
   this.document.getElementById("clickhint").remove();
 });
 
@@ -566,33 +611,4 @@ const hash =
   window.location.hash.slice(1) ||
   "eyJibG9ja3MiOnsibGFuZ3VhZ2VWZXJzaW9uIjowLCJibG9ja3MiOlt7InR5cGUiOiJvdXQiLCJpZCI6Ik15fVBrSUA1WjhWNk5UXWt7Ui1DIiwieCI6MTIxLCJ5IjoxMDAsImlucHV0cyI6eyJpbnB1dCI6eyJibG9jayI6eyJ0eXBlIjoibHBmIiwiaWQiOiJ2SiRBNklockojXlAkMzd+YEBWWyIsImlucHV0cyI6eyJpbiI6eyJibG9jayI6eyJ0eXBlIjoic2F3IiwiaWQiOiJ9Uz0wYVtOSXp6V1JPYGNybEh1aSIsImlucHV0cyI6eyJmcmVxIjp7ImJsb2NrIjp7InR5cGUiOiJuIiwiaWQiOiJbSUN0cW9+UFd3S2AyOF50QWhELSIsImZpZWxkcyI6eyJOVU0iOiI1NSJ9fX19fX0sImN1dG9mZiI6eyJibG9jayI6eyJ0eXBlIjoicmFuZ2UiLCJpZCI6InJvZEoxY0AjISxbeWBDbDBjLDAkIiwiaW5wdXRzIjp7ImluIjp7ImJsb2NrIjp7InR5cGUiOiJzaW5lIiwiaWQiOiJfREg7X1ZxUEhwM0NiQlk0JFFaPyIsImlucHV0cyI6eyJmcmVxIjp7ImJsb2NrIjp7InR5cGUiOiJuIiwiaWQiOiJSaCVjJEFPQ3g3Zj1XLSVUaFZgNyIsImZpZWxkcyI6eyJOVU0iOiIuMiJ9fX19fX0sIm1pbiI6eyJibG9jayI6eyJ0eXBlIjoibiIsImlkIjoiJUl3Y3JES1ZRc1ptQitiaSkyengiLCJmaWVsZHMiOnsiTlVNIjoiLjMifX19LCJtYXgiOnsiYmxvY2siOnsidHlwZSI6Im4iLCJpZCI6IlF3cHQocjd1Sld0TFBiOzdabDhJIiwiZmllbGRzIjp7Ik5VTSI6Ii41In19fX19fSwicmVzbyI6eyJibG9jayI6eyJ0eXBlIjoibiIsImlkIjoiV21GIXY/Szs0LzNXMS9JKWBuQ08iLCJmaWVsZHMiOnsiTlVNIjoiLjIifX19fX19fX1dfX0";
 
-try {
-  const json = JSON.parse(atob(hash)); // convert hash to oject
-  console.log("load", json);
-
-  // before loading the full json, we need to check if it contains "register" nodes
-  // if yes, we need to run a "preflight" pass to make sure custom blocks are defined
-  const registerBlocks = json.blocks.blocks.filter(
-    (block) => block.type === "register"
-  );
-  if (registerBlocks.length) {
-    const preflightWorkspace = {
-      blocks: {
-        languageVersion: 0,
-        blocks: registerBlocks,
-      },
-    };
-    Blockly.serialization.workspaces.load(preflightWorkspace, workspace);
-    const preflightCode = kabelsalatGenerator.workspaceToCode(workspace);
-    console.log("preflight:");
-    console.log(preflightCode);
-    Function(preflightCode)();
-  }
-
-  // problem: any custom nodes in this json won't be registered, because the code didn't run yet..
-  // to run the code, we need to generate it, which we can only do if the workspace is loaded...
-  // deadlock 3000
-  Blockly.serialization.workspaces.load(json, workspace); // load to blockly
-} catch (err) {
-  console.error("could not init code", err);
-}
+blocksalat.loadHash(hash);
