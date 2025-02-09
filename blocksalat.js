@@ -1,6 +1,4 @@
 import * as Blockly from "blockly/core";
-import "blockly/blocks";
-import * as locale from "blockly/msg/en";
 import { SalatRepl, nodeRegistry, register, n } from "@kabelsalat/web";
 import "./plugins/toolbox-search/toolbox_search.ts";
 import DarkTheme from "@blockly/theme-dark";
@@ -21,7 +19,6 @@ export class Blocksalat {
     this.kabelsalatGenerator = new Blockly.Generator("kabelsalat");
 
     Blockly.ContextMenuItems.registerCommentOptions();
-    Blockly.setLocale(locale);
     //console.log("DarkTheme", DarkTheme);
     DarkTheme.componentStyles = {
       ...DarkTheme.componentStyles,
