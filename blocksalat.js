@@ -20,11 +20,12 @@ export class Blocksalat {
 
     Blockly.ContextMenuItems.registerCommentOptions();
     Blockly.setLocale(locale);
-    /* DarkTheme.fontStyle = {
-      family: "monospace",
-      //weight: "bold",
-      size: 10,
-    }; */
+    //console.log("DarkTheme", DarkTheme);
+    DarkTheme.componentStyles = {
+      ...DarkTheme.componentStyles,
+      workspaceBackgroundColour: "transparent",
+      scrollbarColour: "transparent",
+    };
     // get the names of all nodes from the kabelsalat nodeRegistry
     // filter out names that are either handled in a special way (out, n) or ones that don't work with blockly
     const allNodes = Array.from(nodeRegistry.entries())
@@ -498,19 +499,14 @@ export class Blocksalat {
         contents,
       };
     }
-    // init blockly workspace
-    this.workspace = Blockly.inject(targetElement, {
-      readOnly: config.readOnly ?? false,
-      theme: DarkTheme,
-      trashcan: false,
-      sound: false,
-      //rtl: true,
-      move: {
-        scrollbars: true,
-        drag: true,
-        wheel: true,
-      },
-      zoom: {
+    let zoom;
+    let move = {
+      scrollbars: true, // this is needed to center the workspace..
+      drag: false,
+      wheel: false,
+    };
+    if (!config.readOnly) {
+      zoom = {
         controls: true,
         wheel: true,
         startScale: 1.0,
@@ -518,7 +514,23 @@ export class Blocksalat {
         minScale: 0.6,
         scaleSpeed: 1.2,
         pinch: true,
-      },
+      };
+      move = {
+        scrollbars: true,
+        drag: true,
+        wheel: true,
+      };
+    }
+
+    // init blockly workspace
+    this.workspace = Blockly.inject(targetElement, {
+      readOnly: config.readOnly ?? false,
+      theme: DarkTheme,
+      trashcan: false,
+      sound: false,
+      // rtl: true,
+      move,
+      zoom,
       toolbox,
     });
 
@@ -589,6 +601,7 @@ export class Blocksalat {
       // to run the code, we need to generate it, which we can only do if the workspace is loaded...
       // deadlock 3000
       Blockly.serialization.workspaces.load(json, this.workspace); // load to blockly
+      this.workspace.zoomToFit();
     } catch (err) {
       console.error("could not init code", err);
     }
