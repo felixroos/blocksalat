@@ -265,6 +265,7 @@ export class Blocksalat {
     }
 
     window.registerBlockFromKabelsalat = registerBlockFromKabelsalat;
+    this.registerBlockFromKabelsalat = registerBlockFromKabelsalat.bind(this);
 
     // define all nodes
     allNodes.forEach(([name, config]) =>
@@ -534,6 +535,7 @@ export class Blocksalat {
       toolbox,
     });
 
+    window.registerCustomBlock = this.registerCustomBlock.bind(this);
     // init kabelsalat repl
     this.repl = new SalatRepl();
   }
@@ -544,7 +546,6 @@ export class Blocksalat {
     const code = Blocksalat.kabelsalatGenerator.workspaceToCode(this.workspace);
     console.log("run:");
     console.log(code);
-    window.registerCustomBlock = this.registerCustomBlock.bind(this);
     this.repl.run(code);
     if (this.config.onChange) {
       // persist workspace state to url hash, using hashed json
