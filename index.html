@@ -24,6 +24,7 @@
       <div id="editor">
         <div id="blockly"></div>
         <div class="clickhint">click to play</div>
+        <!-- <div class="playtoggle big">stop</div> -->
       </div>
     </div>
     <script type="module">
@@ -42,9 +43,20 @@
       // first document click runs the patch, adds change listener + removes hint
       const clickhint = document.querySelector(".clickhint");
       clickhint.addEventListener("click", function init() {
-        blocksalat.start();
+        blocksalat.toggle();
         clickhint.removeEventListener("click", init);
         clickhint.remove();
+        document
+          .getElementById("editor")
+          .insertAdjacentHTML(
+            "beforeend",
+            `<div class="playtoggle big">stop</div>`
+          );
+        const playtoggle = document.querySelector(".playtoggle");
+        playtoggle.addEventListener("click", function init() {
+          blocksalat.toggle();
+          playtoggle.innerText = blocksalat.started ? "stop" : "play";
+        });
       });
 
       // get hash from url or use default one

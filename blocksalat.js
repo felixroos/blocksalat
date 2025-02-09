@@ -558,10 +558,7 @@ export class Blocksalat {
       this.config.onChange(json);
     }
   }
-  // should be called on a user click
-  start() {
-    this.update();
-    // events that should trigger an update
+  handleChange(event) {
     const supportedEvents = new Set([
       Blockly.Events.BLOCK_CHANGE,
       Blockly.Events.BLOCK_CREATE,
@@ -569,11 +566,28 @@ export class Blocksalat {
       Blockly.Events.BLOCK_MOVE,
       Blockly.Events.BLOCK_FIELD_INTERMEDIATE_CHANGE,
     ]);
-    this.workspace.addChangeListener((event) => {
-      //if (workspace.isDragging()) return;
-      if (!supportedEvents.has(event.type)) return;
-      this.update();
-    });
+    //if (workspace.isDragging()) return;
+    if (!supportedEvents.has(event.type)) return;
+    this.update();
+  }
+  // should be called on a user click
+  start() {
+    this.update();
+    // events that should trigger an update
+    this.workspace.addChangeListener(this.handleChange.bind(this));
+  }
+  stop() {
+    this.repl.stop();
+    this.workspace.removeChangeListener(this.handleChange.bind(this));
+  }
+  toggle() {
+    if (this.started) {
+      this.started = false;
+      this.stop();
+    } else {
+      this.started = true;
+      this.start();
+    }
   }
   loadJSON(json) {
     console.log("load", json);
@@ -717,7 +731,7 @@ class BlocksalatElement extends HTMLElement {
     const initial = this.getAttribute("initial"); // is this safe to do here always?
     this.insertAdjacentHTML(
       "beforeend",
-      `<div class="editor-wrapper"><div class="editor"><div class="clickhint">click to play</div></div><pre>${initial}</pre></div>`
+      `<div class="editor-wrapper"><div class="editor"><div class="playtoggle">play</div></div><pre>${initial}</pre></div>`
     );
     const readOnly = this.getAttribute("readOnly"); // is this safe to do here always?
     const blocksalat = new Blocksalat(this.querySelector(".editor"), {
@@ -725,11 +739,10 @@ class BlocksalatElement extends HTMLElement {
     });
     blocksalat.load(initial);
     // first document click runs the patch, adds change listener + removes hint
-    const clickhint = this.querySelector(".clickhint");
-    clickhint.addEventListener("click", function init() {
-      blocksalat.start();
-      clickhint.removeEventListener("click", init);
-      clickhint.remove();
+    const playtoggle = this.querySelector(".playtoggle");
+    playtoggle.addEventListener("click", function init() {
+      blocksalat.toggle();
+      playtoggle.innerText = blocksalat.started ? "stop" : "play";
     });
   }
 
