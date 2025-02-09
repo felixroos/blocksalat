@@ -4,6 +4,8 @@ import * as locale from "blockly/msg/en";
 import { SalatRepl, nodeRegistry, register, n } from "@kabelsalat/web";
 import "./plugins/toolbox-search/toolbox_search.ts";
 import DarkTheme from "@blockly/theme-dark";
+import { LispParser } from "./lisp.js";
+
 // import { FieldSlider } from "@blockly/field-slider";
 
 export class Blocksalat {
@@ -139,6 +141,7 @@ export class Blocksalat {
       Math.round(((getCategoryIndex(name) + 1) / allTags.length) * 360);
 
     // helper to register a new blockly block
+    const blockRegistry = new Map();
     function registerBlock(name, json, compile) {
       Blockly.Blocks[name] = {
         init: function () {
@@ -146,7 +149,9 @@ export class Blocksalat {
         },
       };
       Blocksalat.kabelsalatGenerator.forBlock[name] = compile;
+      blockRegistry.set(name, json);
     }
+    this.blockRegistry = blockRegistry;
 
     function registerBlockFromKabelsalat(name, config) {
       //console.log("register", name, config);
@@ -570,39 +575,96 @@ export class Blocksalat {
       this.update();
     });
   }
-  loadHash(hash) {
-    try {
-      const json = JSON.parse(atob(hash)); // convert hash to oject
-      console.log("load", json);
-      // before loading the full json, we need to check if it contains "register" nodes
-      // if yes, we need to run a "preflight" pass to make sure custom blocks are defined
-      const registerBlocks = json.blocks.blocks.filter(
-        (block) => block.type === "register"
+  loadJSON(json) {
+    console.log("load", json);
+    // before loading the full json, we need to check if it contains "register" nodes
+    // if yes, we need to run a "preflight" pass to make sure custom blocks are defined
+    const registerBlocks = json.blocks.blocks.filter(
+      (block) => block.type === "register"
+    );
+    if (registerBlocks.length) {
+      const preflightWorkspace = {
+        blocks: {
+          languageVersion: 0,
+          blocks: registerBlocks,
+        },
+      };
+      Blockly.serialization.workspaces.load(preflightWorkspace, this.workspace);
+      const preflightCode = Blocksalat.kabelsalatGenerator.workspaceToCode(
+        this.workspace
       );
-      if (registerBlocks.length) {
-        const preflightWorkspace = {
-          blocks: {
-            languageVersion: 0,
-            blocks: registerBlocks,
-          },
-        };
-        Blockly.serialization.workspaces.load(
-          preflightWorkspace,
-          this.workspace
-        );
-        const preflightCode = Blocksalat.kabelsalatGenerator.workspaceToCode(
-          this.workspace
-        );
-        console.log("preflight:");
-        console.log(preflightCode);
-        Function(preflightCode)();
-      }
+      console.log("preflight:");
+      console.log(preflightCode);
+      Function(preflightCode)();
+    }
 
-      // problem: any custom nodes in this json won't be registered, because the code didn't run yet..
-      // to run the code, we need to generate it, which we can only do if the workspace is loaded...
-      // deadlock 3000
-      Blockly.serialization.workspaces.load(json, this.workspace); // load to blockly
-      this.workspace.zoomToFit();
+    // problem: any custom nodes in this json won't be registered, because the code didn't run yet..
+    // to run the code, we need to generate it, which we can only do if the workspace is loaded...
+    // deadlock 3000
+    Blockly.serialization.workspaces.load(json, this.workspace); // load to blockly
+    this.workspace.zoomToFit();
+  }
+  static lisp2blocks(lisp) {
+    let parseNode = (node) => {
+      // console.log("parse", node);
+      if (typeof node === "undefined") {
+        return { shadow: { type: "n", fields: { NUM: 0 } } };
+      }
+      if (node.type === "plain") {
+        return { shadow: { type: "n", fields: { NUM: Number(node.value) } } };
+      }
+      if (node.type !== "list") {
+        throw new Error(
+          `expected top level element to be a list, got ${node.type}`
+        );
+      }
+      let [type, ...args] = node.children;
+      if (type.type !== "plain") {
+        throw new Error(
+          `expected first child to be of type plain, got ${type.type}`
+        );
+      }
+      type = type.value;
+      // console.log("type", type, "args", args, this);
+      const def = this.blockRegistry.get(type);
+      const validArgs = def.args0.filter((arg) => arg.type !== "input_dummy");
+      // console.log("args", type, validArgs);
+      const inputs = Object.fromEntries(
+        validArgs.map((arg, i) => [arg.name, parseNode(args[i])])
+      );
+      let block = {
+        type,
+        inputs,
+      };
+      return { block };
+    };
+
+    this.lisp = this.lisp || new LispParser();
+    const ast = this.lisp.parse(lisp);
+    const { block } = parseNode(ast);
+    return {
+      blocks: {
+        languageVersion: 0,
+        blocks: [block],
+      },
+    };
+  }
+  load(hash) {
+    try {
+      let str;
+      if (hash.startsWith("(")) {
+        str = hash; // allow passing unhashed lisp
+      } else {
+        str = atob(hash);
+      }
+      let json;
+      // starts with (, its lisp
+      if (str.startsWith("(")) {
+        json = Blocksalat.lisp2blocks(str);
+      } else {
+        json = JSON.parse(str); // convert hash to oject
+      }
+      this.loadJSON(json);
     } catch (err) {
       console.error("could not init code", err);
     }
@@ -635,7 +697,7 @@ export class Blocksalat {
 }
 
 class BlocksalatElement extends HTMLElement {
-  static observedAttributes = ["hash", "readOnly"];
+  static observedAttributes = ["initial", "readOnly"];
 
   constructor() {
     super();
@@ -643,12 +705,12 @@ class BlocksalatElement extends HTMLElement {
       "beforeend",
       `<div class="editor"><div class="clickhint">click to play</div></div>`
     );
-    const hash = this.getAttribute("hash"); // is this safe to do here always?
+    const initial = this.getAttribute("initial"); // is this safe to do here always?
     const readOnly = this.getAttribute("readOnly"); // is this safe to do here always?
     const blocksalat = new Blocksalat(this.querySelector(".editor"), {
       readOnly,
     });
-    blocksalat.loadHash(hash);
+    blocksalat.load(initial);
     // first document click runs the patch, adds change listener + removes hint
     const clickhint = this.querySelector(".clickhint");
     clickhint.addEventListener("click", function init() {
@@ -670,7 +732,7 @@ class BlocksalatElement extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     /* console.log(`Attribute ${name} has changed.`);
     if (name === "hash") {
-      this.blocksalat.loadHash(newValue);
+      this.blocksalat.load(newValue);
     } */
   }
 }
