@@ -484,6 +484,13 @@ export class Blocksalat {
   // workspace, repl
   constructor(targetElement, config = {}) {
     Blocksalat.init();
+    this.targetElement = targetElement;
+    this.init(targetElement, config);
+    // init kabelsalat repl
+    this.repl = new SalatRepl();
+  }
+
+  init(targetElement, config) {
     this.config = config;
     // blockly toolbox definition
     let toolbox;
@@ -538,8 +545,6 @@ export class Blocksalat {
     });
 
     window.registerCustomBlock = this.registerCustomBlock.bind(this);
-    // init kabelsalat repl
-    this.repl = new SalatRepl();
   }
 
   // runs each time something changes
@@ -555,6 +560,26 @@ export class Blocksalat {
       this.config.onChange(json);
     }
   }
+  // should be called on a user click
+  start() {
+    this.update();
+  }
+  stop() {
+    this.repl.stop();
+  }
+  get readOnly() {
+    return this.workspace.options.readOnly;
+  }
+  toggleEdit() {
+    const json = Blockly.serialization.workspaces.save(this.workspace);
+    /* this.removeChangeListener(); */ // seems to create weird bugs
+    this.workspace.dispose();
+    this.init(this.targetElement, { ...this.config, readOnly: !this.readOnly });
+    this.loadJSON(json);
+    setTimeout(() => {
+      this.addChangeListener(); // if we're not delaying it, it will fire immediately a create event for some reason
+    }, 100);
+  }
   handleChange(event) {
     const supportedEvents = new Set([
       Blockly.Events.BLOCK_CHANGE,
@@ -567,23 +592,23 @@ export class Blocksalat {
     if (!supportedEvents.has(event.type)) return;
     this.update();
   }
-  // should be called on a user click
-  start() {
-    this.update();
+  addChangeListener() {
+    this.changeListener = this.changeListener || this.handleChange.bind(this);
+    this.workspace.addChangeListener(this.changeListener);
   }
-  stop() {
-    this.repl.stop();
+  removeChangeListener() {
+    this.changeListener = this.changeListener || this.handleChange.bind(this);
+    this.workspace.removeChangeListener(this.changeListener);
   }
   toggle() {
-    this.changeListener = this.changeListener || this.handleChange.bind(this);
     if (this.started) {
       this.started = false;
       this.stop();
-      this.workspace.removeChangeListener(this.changeListener);
+      this.removeChangeListener();
     } else {
       this.started = true;
       this.start();
-      this.workspace.addChangeListener(this.changeListener);
+      this.addChangeListener();
     }
   }
   loadJSON(json) {

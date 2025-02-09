@@ -97,13 +97,12 @@ input {
   }
 }
 
-.playtoggle {
+.playtoggle,
+.edittoggle {
   cursor: pointer;
   position: absolute;
   border-radius: 100%;
   z-index: 1000;
-  top: 10px;
-  right: 10px;
   color: black;
   background-color: #eee;
   border: 1px solid black;
@@ -117,6 +116,15 @@ input {
     width: 64px;
     height: 64px;
   }
+}
+
+.playtoggle {
+  top: 10px;
+  right: 10px;
+}
+.edittoggle {
+  top: 60px;
+  right: 10px;
 }
 
 a {
