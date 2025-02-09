@@ -573,20 +573,20 @@ export class Blocksalat {
   // should be called on a user click
   start() {
     this.update();
-    // events that should trigger an update
-    this.workspace.addChangeListener(this.handleChange.bind(this));
   }
   stop() {
     this.repl.stop();
-    this.workspace.removeChangeListener(this.handleChange.bind(this));
   }
   toggle() {
+    this.changeListener = this.changeListener || this.handleChange.bind(this);
     if (this.started) {
       this.started = false;
       this.stop();
+      this.workspace.removeChangeListener(this.changeListener);
     } else {
       this.started = true;
       this.start();
+      this.workspace.addChangeListener(this.changeListener);
     }
   }
   loadJSON(json) {
