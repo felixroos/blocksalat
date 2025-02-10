@@ -13,18 +13,24 @@
   <body>
     <div id="container">
       <div id="header">
-        <div>🧩 block.salat</div>
+        <div style="display: grid; gap: 10px; grid-template-columns: 1fr 1fr">
+          <div>🧩 block.salat</div>
+        </div>
         <div>
           <a href="/learn/">learn</a>
-          <a href="https://github.com/felixroos/blocksalat" target="_blank"
-            >source</a
-          >
         </div>
       </div>
       <div id="editor">
         <div id="blockly"></div>
-        <div class="clickhint">click to play</div>
+        <!-- <div class="clickhint">click to play</div> -->
         <!-- <div class="playtoggle big">stop</div> -->
+      </div>
+      <div id="footer">
+        <div class="playbutton" style="cursor: pointer">&#9654; play</div>
+
+        <a href="https://github.com/felixroos/blocksalat" target="_blank"
+          >source</a
+        >
       </div>
     </div>
     <script type="module">
@@ -41,7 +47,7 @@
       });
 
       // first document click runs the patch, adds change listener + removes hint
-      const clickhint = document.querySelector(".clickhint");
+      /* const clickhint = document.querySelector(".clickhint");
       clickhint.addEventListener("click", function init() {
         blocksalat.toggle();
         clickhint.removeEventListener("click", init);
@@ -52,11 +58,13 @@
             "beforeend",
             `<div class="playtoggle big">stop</div>`
           );
-        const playtoggle = document.querySelector(".playtoggle");
-        playtoggle.addEventListener("click", function init() {
-          blocksalat.toggle();
-          playtoggle.innerText = blocksalat.started ? "stop" : "play";
-        });
+      }); */
+      const playtoggle = document.querySelector(".playbutton");
+      playtoggle.addEventListener("click", function init() {
+        blocksalat.toggle();
+        playtoggle.innerHTML = blocksalat.started
+          ? "&#9632; stop"
+          : "&#9654; play";
       });
 
       // get hash from url or use default one

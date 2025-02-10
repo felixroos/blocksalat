@@ -543,7 +543,7 @@ export class Blocksalat {
       zoom,
       toolbox,
       //toolboxPosition: "end",
-      //horizontalLayout: true,
+      horizontalLayout: true,
       media: "/",
     });
 
