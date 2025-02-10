@@ -33,20 +33,20 @@
           <p>Here is a very simple example that generates a sine wave:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (sine 200) (stereo))"
+            initial="(out (sine 400) (stereo))"
           ></blocksalat-editor>
           <p>Press "play" to start the sound!</p>
           <h2>Amplitude Modulation</h2>
           <p>Let's modulate the amplitude using mul:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (mul (sine 200) (range (sine 4) .4 1)) (stereo))"
+            initial="(out (mul (sine 400) (range (sine 4) .4 1)) (stereo))"
           ></blocksalat-editor>
           <h2>Frequency Modulation</h2>
           <p>Let's modulate the frequency instead:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (sine (range (sine 4) 210 230)) (stereo))"
+            initial="(out (sine (range (sine 4) 400 500)) (stereo))"
           ></blocksalat-editor>
           <h2>Subtractive Synthesis</h2>
           <p>
@@ -61,12 +61,12 @@
           <p>We can apply a simple decay envelope with impulse and perc:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (mul (sine 220) (perc (impulse 4) .2)) (stereo))"
+            initial="(out (mul (sine 440) (perc (impulse 4) .2)) (stereo))"
           ></blocksalat-editor>
           <p>We can also use ad to get an attack + decay phase:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (mul (sine 220) (ad (impulse 4) .08 .15)) (stereo))"
+            initial="(out (mul (sine 440) (ad (impulse 4) .08 .15)) (stereo))"
           ></blocksalat-editor>
           <h2>Sequences</h2>
           <p>
@@ -113,7 +113,7 @@
           <p>We can create multiple channels with the poly blocks:</p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (sine (poly2 200 201)) (stereo))"
+            initial="(out (sine (poly2 400 401)) (stereo))"
           ></blocksalat-editor>
           <!-- If we want more channels, we have to mix them down:
           <blocksalat-editor
@@ -125,7 +125,7 @@
           </p>
           <blocksalat-editor
             readOnly="1"
-            initial="(out (mul (sine (poly2 111 442)) (poly2 1 .25)) (stereo))"
+            initial="(out (mul (sine (poly2 333 442)) (poly2 1 .25)) (stereo))"
           ></blocksalat-editor>
           <p>
             Explanation: the channels are automatically mapped to each other.
