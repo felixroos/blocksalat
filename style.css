@@ -54,7 +54,7 @@ p {
   font-size: 1.2em;
   color: white;
   width: 100%;
-  padding: 12px 10px;
+  /* padding: 12px 10px; */
   &.small {
     max-width: 800px;
   }

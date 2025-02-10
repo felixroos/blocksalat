@@ -123,6 +123,7 @@ export class Blocksalat {
     // custom = register / input nodes + nodes created with them
     const customCategoryName = "custom 🧪";
     allTags.push(customCategoryName);
+    allTags.push("examples"); // see addExample below
     // create a block category for each tag
     const categories = allTags.map((name, i) => ({
       kind: "category",
@@ -480,6 +481,33 @@ export class Blocksalat {
     // static props
     this.categories = categories;
     this.customCategoryName = customCategoryName;
+
+    const addExample = (lisp) => {
+      const example = Blocksalat.lisp2blocks(lisp);
+      example.kind = "block";
+      getCategory("examples").contents.push(example);
+    };
+    addExample("(out (sine 400) (stereo))");
+    addExample("(out (mul (sine 400) (range (sine 4) .4 1)) (stereo))");
+    addExample("(out (sine (range (sine 4) 400 500)) (stereo))");
+    addExample("(out (lpf (saw 55) (range (sine 1) .4 .8)) (stereo))");
+    addExample("(out (mul (sine 440) (perc (impulse 4) .2)) (stereo))");
+    addExample("(out (mul (sine 440) (ad (impulse 4) .08 .15)) (stereo))");
+    addExample(
+      "(out (lpf (saw (seq4 (impulse 4) 55 110 220 330)) .5) (stereo))"
+    );
+    addExample(
+      "(out (lpf (saw (lag (seq4 (impulse 2) 55 110 220 330) .7)) .5) (stereo))"
+    );
+    addExample(
+      "(out (add (mul (lpf (saw (seq4 (impulse 2) 55 110 220 330)) .5) (ad (impulse 4) .01 .1)) (lambda (mul (delay (input x) .1) .8))) (stereo))"
+    );
+    addExample("(out (sine (poly2 400 401)) (stereo))");
+    addExample("(out (mul (sine (poly2 333 442)) (poly2 1 .25)) (stereo))");
+    addExample("(out (fold (sine 55) (range (sine .5) 0.2 4)) (stereo))");
+    addExample(
+      "(out (distort (lpf (saw (lag (seq5 (impulse 4) 55 0 55 66 77) .5)) (range(sine .3) .2 .8) .2) (range (sine .5) 0 1)) (stereo))"
+    );
   }
   // workspace, repl
   constructor(targetElement, config = {}) {
@@ -616,6 +644,10 @@ export class Blocksalat {
   }
   loadJSON(json) {
     console.log("load", json);
+    if (!json?.blocks?.blocks) {
+      console.warn("empty json?", json);
+      return;
+    }
     // before loading the full json, we need to check if it contains "register" nodes
     // if yes, we need to run a "preflight" pass to make sure custom blocks are defined
     const registerBlocks = json.blocks.blocks.filter(
@@ -712,14 +744,9 @@ export class Blocksalat {
     } */
     //console.log("ast", ast);
     const { block } = parseNode(ast);
-    return {
-      blocks: {
-        languageVersion: 0,
-        blocks: [block],
-      },
-    };
+    return block;
   }
-  load(hash) {
+  load(hash, onError) {
     try {
       let str;
       if (hash.startsWith("(")) {
@@ -730,13 +757,19 @@ export class Blocksalat {
       let json;
       // starts with (, its lisp
       if (str.startsWith("(")) {
-        json = Blocksalat.lisp2blocks(str);
+        json = {
+          blocks: {
+            languageVersion: 0,
+            blocks: [Blocksalat.lisp2blocks(str)],
+          },
+        };
       } else {
         json = JSON.parse(str); // convert hash to oject
       }
       this.loadJSON(json);
     } catch (err) {
       console.error("could not init code", err);
+      onError?.(err);
     }
   }
 
