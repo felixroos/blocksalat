@@ -48,6 +48,7 @@ p {
 }
 #footer {
   background: #333;
+  height: 46px;
   display: flex;
   justify-content: space-between;
   font-size: 1.2em;

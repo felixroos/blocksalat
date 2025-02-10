@@ -536,7 +536,7 @@ export class Blocksalat {
     this.workspace = Blockly.inject(targetElement, {
       readOnly: config.readOnly ?? false,
       theme: DarkTheme,
-      trashcan: false,
+      trashcan: true,
       sounds: false,
       // rtl: true,
       move,
