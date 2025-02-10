@@ -537,11 +537,14 @@ export class Blocksalat {
       readOnly: config.readOnly ?? false,
       theme: DarkTheme,
       trashcan: false,
-      sound: false,
+      sounds: false,
       // rtl: true,
       move,
       zoom,
       toolbox,
+      //toolboxPosition: "end",
+      //horizontalLayout: true,
+      media: "/",
     });
 
     window.registerCustomBlock = this.registerCustomBlock.bind(this);
