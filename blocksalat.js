@@ -576,6 +576,14 @@ export class Blocksalat {
     });
 
     window.registerCustomBlock = this.registerCustomBlock.bind(this);
+
+    // if readOnly, add readonly class to allow scrolling over the item on mobile
+    const container = this.targetElement.querySelector(".injectionDiv");
+    if (this.readOnly) {
+      container.classList.add("readonly");
+    } else {
+      container.classList.remove("readonly");
+    }
   }
 
   // runs each time something changes

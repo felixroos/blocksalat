@@ -130,7 +130,7 @@ input {
     /* max-width: 100%; */
     max-width: 800px;
   }
-  .injectionDiv {
+  .injectionDiv.readonly {
     touch-action: inherit;
   }
 }
